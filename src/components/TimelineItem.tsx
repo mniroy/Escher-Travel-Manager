@@ -137,7 +137,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                     </div>
                 ) : (
                     // Standard Card Implementation with Two-Tone Option
-                    isSkipped || isCheckedIn ? (
+                    isSkipped ? (
                         <div
                             onClick={onClick}
                             className={`p-6 rounded-[1.75rem] relative group/card cursor-pointer flex flex-col gap-3 ${cardStyle}`}
@@ -266,10 +266,15 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                     <div className="grid grid-cols-2 gap-2.5">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onCheckIn?.(event.id); }}
-                                            className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#005EC2] text-white/90 border border-white/10 hover:bg-[#0051A8] hover:text-white transition-all text-xs font-bold"
+                                            className={`
+                                                flex items-center justify-center gap-2 py-3 px-3 rounded-xl transition-all text-xs font-bold border
+                                                ${isCheckedIn
+                                                    ? 'bg-white text-[#007AFF] border-white shadow-md'
+                                                    : 'bg-[#005EC2] text-white/90 border-white/10 hover:bg-[#0051A8] hover:text-white'}
+                                            `}
                                         >
-                                            <CheckCircle2 size={15} />
-                                            Check In
+                                            <CheckCircle2 size={15} className={isCheckedIn ? 'fill-[#007AFF] text-white' : ''} />
+                                            {isCheckedIn ? 'Checked In' : 'Check In'}
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}

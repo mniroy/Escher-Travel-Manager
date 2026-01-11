@@ -137,13 +137,21 @@ export default function ItineraryPage() {
             if (index === -1) return prev;
 
             const nextEvents = [...prev];
-            nextEvents[index] = { ...nextEvents[index], status: 'Checked In', time: timeString };
+            const currentEvent = nextEvents[index];
+
+            if (currentEvent.status === 'Checked In') {
+                // Toggle OFF: Revert to Scheduled, keep current time
+                nextEvents[index] = { ...currentEvent, status: 'Scheduled' };
+            } else {
+                // Toggle ON: Set to Checked In, update time to NOW
+                nextEvents[index] = { ...currentEvent, status: 'Checked In', time: timeString };
+            }
 
             let duration = parseDuration(nextEvents[index].duration || '60m');
-            // If checking in, we assume it takes the full duration starting NOW
+            // If checking in (or scheduled), we assume it takes the full duration
             if (nextEvents[index].status === 'Skipped') duration = 0;
 
-            let cursorTime = parseTime(timeString) + duration;
+            let cursorTime = parseTime(nextEvents[index].time) + duration;
 
             for (let i = index + 1; i < nextEvents.length; i++) {
                 const evt = nextEvents[i];
