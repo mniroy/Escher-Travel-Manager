@@ -98,7 +98,7 @@ export const db = {
         return data;
     },
 
-    async createTrip(trip: Omit<DbTrip, 'id' | 'created_at' | 'updated_at'>): Promise<DbTrip> {
+    async createTrip(trip: Partial<DbTrip> & { name: string; start_date: string; duration: number }): Promise<DbTrip> {
         const { data, error } = await supabase
             .from('trips')
             .insert(trip)

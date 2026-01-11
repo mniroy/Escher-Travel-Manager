@@ -215,7 +215,7 @@ export default function ItineraryPage() {
         } else {
             // CREATE new event
             const newEvent: TimelineEvent = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 ...activityData,
                 dayOffset: targetOffset
             };

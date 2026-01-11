@@ -114,6 +114,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                     setStartDateState(new Date(trip.start_date));
                     setTripDurationState(trip.duration);
                     setPlacesCoverImageState(trip.cover_image || '');
+                } else {
+                    console.log('[TripContext] Default trip not found, creating...');
+                    const newTrip = await db.createTrip({
+                        id: tripId,
+                        name: 'My Trip to Bali',
+                        start_date: new Date().toISOString().split('T')[0],
+                        duration: 9,
+                        cover_image: null
+                    } as any); // Type cast for 'id' which is usually omitted in creation but we want to force this ID
+
+                    if (newTrip) {
+                        setTripNameState(newTrip.name);
+                        setStartDateState(new Date(newTrip.start_date));
+                        setTripDurationState(newTrip.duration);
+                    }
                 }
 
                 const dbEvents = await db.getEvents(tripId);
