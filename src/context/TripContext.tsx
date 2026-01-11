@@ -24,6 +24,7 @@ interface TripContextType {
     // Events
     events: TimelineEvent[];
     setEvents: (events: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => void;
+    deleteEvent: (id: string) => Promise<void>;
 
     // Computed
     tripDates: { dateObj: Date; dayName: string; dateNum: number; fullDate: string; offset: number }[];
@@ -294,6 +295,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const deleteEvent = async (id: string) => {
+        // Optimistic update
+        const previousEvents = [...events];
+        setEventsState(prev => prev.filter(e => e.id !== id));
+
+        if (currentTripId) {
+            try {
+                if (isOnline) {
+                    await db.deleteEvent(id);
+                } else {
+                    await storage.deleteEvent(id);
+                }
+            } catch (error) {
+                console.error('[TripContext] Failed to delete event:', error);
+                // Revert on error
+                setEventsState(previousEvents);
+            }
+        }
+    };
+
     const tripDates = useMemo(() => {
         return Array.from({ length: tripDuration }, (_, i) => {
             const d = new Date(startDate);
@@ -316,7 +337,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             startDate, setStartDate,
             tripDuration, setTripDuration,
             placesCoverImage, setPlacesCoverImage,
-            events, setEvents,
+            events, setEvents, deleteEvent,
             tripDates,
             currentTripId,
             refreshData: loadData,

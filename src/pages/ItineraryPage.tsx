@@ -15,7 +15,7 @@ export default function ItineraryPage() {
         tripName, setTripName,
         startDate, setStartDate,
         tripDuration, setTripDuration,
-        events, setEvents,
+        events, setEvents, deleteEvent,
         tripDates
     } = useTrip();
 
@@ -237,7 +237,7 @@ export default function ItineraryPage() {
     const handleDeleteEvent = (id: string) => {
         if (window.confirm('Are you sure you want to remove this activity?')) {
             addToHistory(events); // Save current state before changing
-            setEvents(prev => prev.filter(e => e.id !== id));
+            deleteEvent(id);
         }
     };
 
