@@ -201,35 +201,51 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                     ) : (
                         // Two-Tone Design (Reference: Flight Card)
                         <div className="rounded-[1.75rem] overflow-hidden shadow-lg mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
-                            {/* Top Section: Dark Navy */}
-                            <div className="p-6 pb-6 relative">
-                                <div className="flex justify-between items-start mb-3">
-                                    <span className="text-sm font-bold text-[#007AFF] opacity-90">{event.time}</span>
-                                    {event.status && event.status !== 'Scheduled' && (
-                                        <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50">{event.status}</span>
-                                    )}
-                                </div>
+                            {/* Top Section: Dark Navy or Image */}
+                            <div className="p-6 pb-6 relative overflow-hidden h-full min-h-[160px] flex flex-col justify-between">
+                                {/* Background Image */}
+                                {event.image && (
+                                    <>
+                                        <div className="absolute inset-0 z-0">
+                                            <img
+                                                src={event.image}
+                                                alt={event.title}
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+                                        </div>
+                                    </>
+                                )}
 
-                                <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide">{event.title}</h3>
-                                {event.description && <p className="text-sm text-slate-400 mb-4 leading-relaxed font-medium line-clamp-2">{event.description}</p>}
-
-                                {(event.duration || event.rating) && (
-                                    <div className="flex items-center gap-4 text-xs text-slate-500 font-bold">
-                                        {event.rating && (
-                                            <div className="flex items-center gap-1 text-[#007AFF]">
-                                                <Star size={14} fill="currentColor" />
-                                                <span className="text-slate-200">{event.rating}</span>
-                                                <span className="text-slate-500 font-medium">({event.reviews})</span>
-                                            </div>
-                                        )}
-                                        {event.duration && (
-                                            <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/5 text-slate-200 shadow-sm backdrop-blur-sm">
-                                                <Clock size={13} className="text-[#007AFF]" />
-                                                <span>{event.duration}</span>
-                                            </div>
+                                <div className="relative z-10">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
+                                        {event.status && event.status !== 'Scheduled' && (
+                                            <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
                                         )}
                                     </div>
-                                )}
+
+                                    <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
+                                    {event.description && <p className="text-sm text-slate-200/80 mb-4 leading-relaxed font-medium line-clamp-2 drop-shadow-sm">{event.description}</p>}
+
+                                    {(event.duration || event.rating) && (
+                                        <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
+                                            {event.rating && (
+                                                <div className="flex items-center gap-1 text-[#007AFF] bg-black/30 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
+                                                    <Star size={14} fill="currentColor" />
+                                                    <span className="text-slate-100">{event.rating}</span>
+                                                    <span className="text-slate-400 font-medium">({event.reviews})</span>
+                                                </div>
+                                            )}
+                                            {event.duration && (
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
+                                                    <Clock size={13} className="text-[#007AFF]" />
+                                                    <span>{event.duration}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Bottom Section: Bright Blue */}
