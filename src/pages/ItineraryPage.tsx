@@ -344,9 +344,9 @@ export default function ItineraryPage() {
                     </AnimatePresence>
                 </motion.div>
 
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20 z-10 pointer-events-none" />
-                {/* Seamless Blend to Dark Content */}
-                <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent z-10 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-zinc-50/10 z-10 pointer-events-none" />
+                {/* Seamless Blend to Light Content */}
+                <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-zinc-50 via-zinc-50/60 to-transparent z-10 pointer-events-none" />
 
                 <div className="relative z-10 flex justify-between items-end">
                     <div>

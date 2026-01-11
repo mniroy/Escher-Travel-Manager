@@ -116,8 +116,8 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                         {/* Bottom Section - Bright Blue */}
                         <div className="bg-[#007AFF] p-5 flex justify-between items-center text-white relative">
                             {/* Decorative Cutouts */}
-                            <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full" />
-                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full" />
+                            <div className="absolute -top-3 -left-3 w-6 h-6 bg-zinc-50 rounded-full" />
+                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-zinc-50 rounded-full" />
 
                             <div>
                                 <div className="text-[10px] opacity-70 font-bold uppercase tracking-wider mb-0.5">Flight number</div>
@@ -238,8 +238,8 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                             {/* Bottom Section: Bright Blue */}
                             <div className="bg-[#007AFF] p-4 relative">
                                 {/* Decorative Cutouts */}
-                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full" />
-                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full" />
+                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-zinc-50 rounded-full" />
+                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-zinc-50 rounded-full" />
 
                                 <div className="grid gap-2.5">
                                     <Link to={`/place/${event.id}`}
