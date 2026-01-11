@@ -340,13 +340,13 @@ export default function ItineraryPage() {
                                 key={i}
                                 onClick={() => toggleDate(dateObj.offset)}
                                 className={`
-                                    flex flex-col items-center justify-center min-w-[3.5rem] h-[4.5rem] rounded-2xl transition-all duration-300 border
+                                    flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
                                     ${isSelected
                                         ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
                                         : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
                                 `}
                             >
-                                <span className={`text-lg leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
+                                <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
                                 <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
                             </button>
                         )

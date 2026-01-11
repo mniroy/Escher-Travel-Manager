@@ -18,13 +18,13 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
     ];
 
     return (
-        <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 px-6">
+        <div className="flex justify-between py-2 px-6 w-full">
             {categories.map((cat) => (
                 <button
                     key={cat.id}
                     onClick={() => onSelect(cat.id)}
                     className={`
-                        flex items-center gap-1.5 px-4 py-2 rounded-full whitespace-nowrap transition-all border
+                        flex items-center gap-1.5 px-2.5 py-1.5 rounded-full whitespace-nowrap transition-all border
                         ${selected === cat.id
                             ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 transform scale-105'
                             : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 hover:text-white'
@@ -32,7 +32,7 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
                     `}
                 >
                     {React.cloneElement(cat.icon as React.ReactElement, { size: 14 })}
-                    <span className="text-xs font-bold">{cat.label}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide">{cat.label}</span>
                 </button>
             ))}
         </div>
