@@ -88,12 +88,12 @@ export default function PlaceDetailPage() {
     // Merge initial data with fetched data
     // Use fetched data if available, otherwise fallback
     const display = {
-        title: fetchedPlace?.name || fetchedPlace?.displayName || initialPlace.title,
+        title: fetchedPlace?.displayName || initialPlace.title,
         address: fetchedPlace?.formattedAddress || fetchedPlace?.address || initialPlace.address,
         rating: fetchedPlace?.rating || initialPlace.rating,
         reviews: fetchedPlace?.userRatingCount || fetchedPlace?.reviewCount || initialPlace.reviews,
-        status: fetchedPlace?.isOpen === true ? 'Open now' : (fetchedPlace?.isOpen === false ? 'Closed' : initialPlace.status),
-        statusColor: fetchedPlace?.isOpen === true ? 'text-emerald-500' : (fetchedPlace?.isOpen === false ? 'text-red-500' : 'text-zinc-500'),
+        status: fetchedPlace?.regularOpeningHours?.openNow === true ? 'Open now' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'Closed' : initialPlace.status),
+        statusColor: fetchedPlace?.regularOpeningHours?.openNow === true ? 'text-emerald-500' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'text-red-500' : 'text-zinc-500'),
         closeTime: fetchedPlace?.regularOpeningHours?.weekdayDescriptions?.[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || '',
         images: (fetchedPlace?.photoUrls && fetchedPlace.photoUrls.length > 0) ? fetchedPlace.photoUrls : (fetchedPlace?.photos?.filter((p: string) => typeof p === 'string') || initialPlace.images),
         userReviews: fetchedPlace?.reviews || [], // Google reviews format
