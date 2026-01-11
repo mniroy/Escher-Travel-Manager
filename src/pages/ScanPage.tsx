@@ -1,6 +1,6 @@
 import { Layout } from '../components/Layout';
-import { Camera, Upload, Sparkles, CheckCircle2, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Upload, Sparkles, CheckCircle2, X } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ScanPage() {

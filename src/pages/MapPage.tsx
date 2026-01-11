@@ -1,5 +1,5 @@
 import { Layout } from '../components/Layout';
-import { MapPin, Navigation, Car, Locate } from 'lucide-react';
+import { Car, Locate } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState } from 'react';
 
@@ -74,7 +74,7 @@ export default function MapPage() {
     );
 }
 
-function RouteStop({ title, time, active, first, last }: { title: string; time: string; active?: boolean; first?: boolean; last?: boolean }) {
+function RouteStop({ title, time, active, first: _first, last }: { title: string; time: string; active?: boolean; first?: boolean; last?: boolean }) {
     return (
         <div className={`flex items-center gap-4 relative z-10 ${!last ? 'pb-6' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors 

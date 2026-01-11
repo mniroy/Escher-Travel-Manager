@@ -1,4 +1,4 @@
-import { Plane, Coffee, Pizza, Ticket, Bed, Bus, MapPin } from 'lucide-react';
+import { Plane, Coffee, Ticket, Bed, MapPin } from 'lucide-react';
 import React from 'react';
 
 export type Category = 'All' | 'Transport' | 'Stay' | 'Eat' | 'Play';

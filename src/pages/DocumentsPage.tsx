@@ -1,5 +1,5 @@
 import { Layout } from '../components/Layout';
-import { FileText, Plus, Filter, SortAsc, Tag, Upload, X, Check } from 'lucide-react';
+import { FileText, Plus, Tag, Upload, X, Check } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
 import { useTrip } from '../context/TripContext';
 import { TimelineEvent } from '../components/TimelineItem';

@@ -4,7 +4,7 @@ import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
-import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,7 +27,7 @@ export default function ItineraryPage() {
     const [isOptimizing, setIsOptimizing] = useState(false);
 
     // Undo History State
-    const [history, setHistory] = useState<TimelineEvent[][]>([]);
+    const [_history, setHistory] = useState<TimelineEvent[][]>([]);
 
     // Edit Mode State
     const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);

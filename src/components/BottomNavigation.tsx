@@ -17,7 +17,7 @@ export function BottomNavigation() {
     );
 }
 
-function NavLink({ to, icon, active, label }: { to: string; icon: React.ReactNode; active: boolean; label: string }) {
+function NavLink({ to, icon, active, label: _label }: { to: string; icon: React.ReactNode; active: boolean; label: string }) {
     return (
         <Link
             to={to}
