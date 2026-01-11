@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, MapPin, ArrowRight, Clock, Link as LinkIcon, Minus, Plus, Plane, Coffee, Bed, Ticket } from 'lucide-react';
+import { X, Sparkles, Loader2, MapPin, ArrowRight, Clock, Link as LinkIcon, Minus, Plus, Plane, Coffee, Bed, Ticket, AlertCircle } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
+import { parseGoogleMapsUrl, placeTypeToEventType, isGoogleMapsUrl } from '../lib/googleMaps';
 
 // Define a type strictly for Events, excluding 'All'
 export type EventCategory = 'Transport' | 'Stay' | 'Eat' | 'Play';
@@ -20,6 +21,7 @@ export interface NewActivity {
     description: string;
     googleMapsLink?: string;
     rating?: number;
+    reviews?: number;
     image?: string;
     duration?: string;
 }
@@ -46,6 +48,7 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
 
     const [step, setStep] = useState<'INPUT' | 'PREVIEW'>('INPUT');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [link, setLink] = useState('');
     const [durationMinutes, setDurationMinutes] = useState(60);
 
@@ -58,6 +61,7 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
 
     useEffect(() => {
         if (isOpen) {
+            setError(null);
             if (initialData) {
                 // Edit Mode: Pre-fill data and skip to PREVIEW
                 setFormData({
@@ -89,36 +93,46 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
 
     if (!isOpen) return null;
 
-    const handleSmartFill = () => {
+    const handleSmartFill = async () => {
         if (!link) return;
         setIsLoading(true);
+        setError(null);
 
-        // Mock API Call delay
-        setTimeout(() => {
-            let mockData: Partial<NewActivity> = {
-                title: 'New Location',
-                type: 'Play',
-                description: 'Added via Smart Fill',
-                rating: 4.5
-            };
+        // Check if it's a valid Google Maps URL
+        if (!isGoogleMapsUrl(link)) {
+            setError('Please paste a valid Google Maps link');
+            setIsLoading(false);
+            return;
+        }
 
-            const lowerLink = link.toLowerCase();
-            if (lowerLink.includes('coffee') || lowerLink.includes('starbucks')) {
-                mockData = { title: 'Starbucks Reserve', type: 'Eat', description: 'Coffee break.', rating: 4.6 };
-            } else if (lowerLink.includes('museum')) {
-                mockData = { title: 'National Museum', type: 'Play', description: 'Art and history tour.', rating: 4.8 };
-            } else if (lowerLink.includes('hotel')) {
-                mockData = { title: 'Grand Hotel', type: 'Stay', description: 'Check-in time.', rating: 4.9 };
-            } else if (lowerLink.includes('airport') || lowerLink.includes('station')) {
-                mockData = { title: 'Central Station', type: 'Transport', description: 'Train to next city.', rating: 4.2 };
-            } else if (lowerLink.includes('restaurant') || lowerLink.includes('food')) {
-                mockData = { title: 'Local Delicacy', type: 'Eat', description: 'Lunch reservation.', rating: 4.7 };
+        try {
+            const result = await parseGoogleMapsUrl(link);
+
+            if (!result.success || !result.data) {
+                setError(result.error || 'Failed to fetch place details');
+                setIsLoading(false);
+                return;
             }
 
-            setFormData(prev => ({ ...prev, ...mockData, googleMapsLink: link }));
-            setIsLoading(false);
+            const place = result.data;
+
+            setFormData(prev => ({
+                ...prev,
+                title: place.name,
+                type: placeTypeToEventType(place.types),
+                description: place.address,
+                googleMapsLink: place.googleMapsUrl,
+                rating: place.rating,
+                reviews: place.reviewCount,
+                image: place.photos?.[0]
+            }));
+
             setStep('PREVIEW');
-        }, 1500);
+        } catch (err) {
+            setError('Network error. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleConfirm = () => {
@@ -170,9 +184,9 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                                     <input
                                         type="text"
                                         value={link}
-                                        onChange={(e) => setLink(e.target.value)}
+                                        onChange={(e) => { setLink(e.target.value); setError(null); }}
                                         placeholder="https://goo.gl/maps/..."
-                                        className="flex-1 bg-background border border-primary/30 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        className={`flex-1 bg-background border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 ${error ? 'border-red-500/50' : 'border-primary/30'}`}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSmartFill()}
                                     />
                                     <button
@@ -183,6 +197,13 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                                         {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
                                     </button>
                                 </div>
+
+                                {error && (
+                                    <div className="flex items-center gap-2 text-red-400 text-sm mt-2">
+                                        <AlertCircle size={14} />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

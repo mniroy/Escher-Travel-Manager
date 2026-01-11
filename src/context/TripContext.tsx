@@ -1,93 +1,16 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { TimelineEvent } from '../components/TimelineItem';
+import { db, DbTrip, DbEvent, subscribeToTrips, subscribeToEvents, checkSupabaseConnection } from '../lib/supabase';
+import { storage, initializeDefaultData, TimelineEvent as StoredEvent } from '../lib/storage';
 
-// Initial Mock Data (Moved from ItineraryPage)
-const MOCK_EVENTS_DATA: TimelineEvent[] = [
-    {
-        id: '1',
-        type: 'Transport',
-        title: 'Arrive at Zurich International Airport',
-        time: '03:00 PM',
-        description: 'Terminal 1, Flight LX180',
-        dayOffset: 0,
-        duration: '45m'
-    },
-    {
-        id: '2',
-        type: 'Eat',
-        title: 'Elfrentes Roasting',
-        time: '04:00 PM',
-        endTime: '11:00 PM',
-        status: 'Open now',
-        rating: 4.7,
-        reviews: 2735,
-        description: 'Specialty coffee roaster with light bites.',
-        dayOffset: 0,
-        travelTime: '30m',
-        travelMode: 'drive',
-        duration: '1h 30m'
-    },
-    {
-        id: '3',
-        type: 'Play',
-        title: 'Spend the day exploring Zurich',
-        time: '05:00 PM',
-        description: 'Old Town, Lake Zurich, and Bahnhofstrasse.',
-        dayOffset: 0,
-        travelTime: '15m',
-        travelMode: 'walk',
-        duration: '3h'
-    },
-    {
-        id: '4',
-        type: 'Eat',
-        title: 'Elmira fine dining',
-        time: '07:00 PM',
-        rating: 4.9,
-        reviews: 854,
-        description: 'Modern Swiss cuisine.',
-        dayOffset: 0,
-        travelTime: '20m',
-        travelMode: 'transit',
-        duration: '2h'
-    },
-    {
-        id: '5',
-        type: 'Stay',
-        title: 'BVLGARI Hotel',
-        time: '07:45 PM',
-        description: 'Check-in confirmed.',
-        dayOffset: 0,
-        travelTime: '10m',
-        travelMode: 'drive'
-    },
-    {
-        id: '6',
-        type: 'Eat',
-        title: 'Cafe Odeon',
-        time: '09:00 AM',
-        description: 'Historic Art Nouveau café.',
-        dayOffset: 1,
-        duration: '1h'
-    },
-    {
-        id: '7',
-        type: 'Play',
-        title: 'Kunsthaus Zürich',
-        time: '11:00 AM',
-        description: 'Visit the art museum.',
-        dayOffset: 1,
-        duration: '2h 15m'
-    }
-];
-
-interface TripSettings {
-    tripName: string;
-    startDate: Date;
-    tripDuration: number;
-}
+// Default trip ID for shared access
+const DEFAULT_TRIP_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
 interface TripContextType {
+    // Loading state
+    isLoading: boolean;
+    isOnline: boolean;
+
     // Trip Settings
     tripName: string;
     setTripName: (name: string) => void;
@@ -104,19 +27,257 @@ interface TripContextType {
 
     // Computed
     tripDates: { dateObj: Date; dayName: string; dateNum: number; fullDate: string; offset: number }[];
+
+    // Current trip
+    currentTripId: string | null;
+
+    // Refresh data
+    refreshData: () => Promise<void>;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
 
+// Convert DB event to Timeline event
+function dbEventToTimelineEvent(e: DbEvent): TimelineEvent {
+    return {
+        id: e.id,
+        type: e.type,
+        title: e.title,
+        time: e.time,
+        endTime: e.end_time || undefined,
+        description: e.description || undefined,
+        rating: e.rating || undefined,
+        reviews: e.reviews || undefined,
+        image: e.image || undefined,
+        status: e.status || undefined,
+        duration: e.duration || undefined,
+        googleMapsLink: e.google_maps_link || undefined,
+        travelTime: e.travel_time || undefined,
+        travelMode: e.travel_mode || undefined,
+        dayOffset: e.day_offset,
+    };
+}
+
+// Convert Timeline event to DB event format
+function timelineEventToDbEvent(e: TimelineEvent, tripId: string, sortOrder: number): Omit<DbEvent, 'created_at' | 'updated_at'> {
+    return {
+        id: e.id,
+        trip_id: tripId,
+        type: e.type,
+        title: e.title,
+        time: e.time,
+        end_time: e.endTime || null,
+        description: e.description || null,
+        rating: e.rating || null,
+        reviews: e.reviews || null,
+        image: e.image || null,
+        status: e.status || null,
+        duration: e.duration || null,
+        google_maps_link: e.googleMapsLink || null,
+        travel_time: e.travelTime || null,
+        travel_mode: e.travelMode || null,
+        day_offset: e.dayOffset ?? 0,
+        sort_order: sortOrder,
+    };
+}
+
 export function TripProvider({ children }: { children: React.ReactNode }) {
-    const [tripName, setTripName] = useState('Bali Trip');
-    const [startDate, setStartDate] = useState(new Date('2024-08-21'));
-    const [tripDuration, setTripDuration] = useState(9);
-    const [placesCoverImage, setPlacesCoverImage] = useState('https://images.unsplash.com/photo-1555400038-63f5ba517a47?auto=format&fit=crop&w=1000&q=80');
-    const [events, setEvents] = useState<TimelineEvent[]>(MOCK_EVENTS_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isOnline, setIsOnline] = useState(true);
+    const [currentTripId, setCurrentTripId] = useState<string | null>(null);
+    const [tripName, setTripNameState] = useState('');
+    const [startDate, setStartDateState] = useState(new Date());
+    const [tripDuration, setTripDurationState] = useState(9);
+    const [placesCoverImage, setPlacesCoverImageState] = useState('');
+    const [events, setEventsState] = useState<TimelineEvent[]>([]);
 
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Load data from Supabase or fallback to IndexedDB
+    const loadData = useCallback(async () => {
+        try {
+            // Check Supabase connection
+            const supabaseConnected = await checkSupabaseConnection();
+            setIsOnline(supabaseConnected);
+
+            if (supabaseConnected) {
+                // Load from Supabase (cloud)
+                console.log('[TripContext] Loading from Supabase...');
+
+                const tripId = DEFAULT_TRIP_ID;
+                setCurrentTripId(tripId);
+
+                const trip = await db.getTrip(tripId);
+                if (trip) {
+                    setTripNameState(trip.name);
+                    setStartDateState(new Date(trip.start_date));
+                    setTripDurationState(trip.duration);
+                    setPlacesCoverImageState(trip.cover_image || '');
+                }
+
+                const dbEvents = await db.getEvents(tripId);
+                setEventsState(dbEvents.map(dbEventToTimelineEvent));
+
+                console.log('[TripContext] Loaded from Supabase:', trip?.name, 'Events:', dbEvents.length);
+            } else {
+                // Fallback to IndexedDB (offline)
+                console.log('[TripContext] Supabase unavailable, using IndexedDB...');
+                await initializeDefaultData();
+
+                const tripId = await storage.getCurrentTripId();
+                if (tripId) {
+                    setCurrentTripId(tripId);
+
+                    const trip = await storage.getTrip(tripId);
+                    if (trip) {
+                        setTripNameState(trip.name);
+                        setStartDateState(new Date(trip.startDate));
+                        setTripDurationState(trip.duration);
+                        setPlacesCoverImageState(trip.coverImage);
+                    }
+
+                    const storedEvents = await storage.getEvents(tripId);
+                    setEventsState(storedEvents.map(e => ({
+                        id: e.id,
+                        type: e.type,
+                        title: e.title,
+                        time: e.time,
+                        endTime: e.endTime,
+                        description: e.description,
+                        rating: e.rating,
+                        reviews: e.reviews,
+                        image: e.image,
+                        status: e.status,
+                        duration: e.duration,
+                        googleMapsLink: e.googleMapsLink,
+                        travelTime: e.travelTime,
+                        travelMode: e.travelMode,
+                        dayOffset: e.dayOffset,
+                    })));
+                }
+            }
+        } catch (error) {
+            console.error('[TripContext] Load error:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Initialize on mount
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // Subscribe to real-time updates from Supabase
+    useEffect(() => {
+        if (!isOnline || !currentTripId) return;
+
+        console.log('[TripContext] Setting up real-time subscriptions...');
+
+        // Subscribe to trip changes
+        const tripChannel = subscribeToTrips((payload) => {
+            if (payload.eventType === 'UPDATE' && payload.new) {
+                const trip = payload.new as DbTrip;
+                if (trip.id === currentTripId) {
+                    console.log('[TripContext] Real-time trip update:', trip.name);
+                    setTripNameState(trip.name);
+                    setStartDateState(new Date(trip.start_date));
+                    setTripDurationState(trip.duration);
+                    setPlacesCoverImageState(trip.cover_image || '');
+                }
+            }
+        });
+
+        // Subscribe to event changes
+        const eventChannel = subscribeToEvents(currentTripId, (payload) => {
+            console.log('[TripContext] Real-time event update:', payload.eventType);
+            // Reload all events on any change for simplicity
+            db.getEvents(currentTripId).then(dbEvents => {
+                setEventsState(dbEvents.map(dbEventToTimelineEvent));
+            });
+        });
+
+        return () => {
+            console.log('[TripContext] Cleaning up subscriptions...');
+            tripChannel.unsubscribe();
+            eventChannel.unsubscribe();
+        };
+    }, [isOnline, currentTripId]);
+
+    // Wrapper functions that save to Supabase (or IndexedDB as fallback)
+    const setTripName = async (name: string) => {
+        setTripNameState(name);
+        if (currentTripId) {
+            if (isOnline) {
+                await db.updateTrip(currentTripId, { name });
+            } else {
+                await storage.updateTrip(currentTripId, { name });
+            }
+        }
+    };
+
+    const setStartDate = async (date: Date) => {
+        setStartDateState(date);
+        if (currentTripId) {
+            const dateStr = date.toISOString().split('T')[0];
+            if (isOnline) {
+                await db.updateTrip(currentTripId, { start_date: dateStr });
+            } else {
+                await storage.updateTrip(currentTripId, { startDate: dateStr });
+            }
+        }
+    };
+
+    const setTripDuration = async (days: number) => {
+        setTripDurationState(days);
+        if (currentTripId) {
+            if (isOnline) {
+                await db.updateTrip(currentTripId, { duration: days });
+            } else {
+                await storage.updateTrip(currentTripId, { duration: days });
+            }
+        }
+    };
+
+    const setPlacesCoverImage = async (url: string) => {
+        setPlacesCoverImageState(url);
+        if (currentTripId) {
+            if (isOnline) {
+                await db.updateTrip(currentTripId, { cover_image: url });
+            } else {
+                await storage.updateTrip(currentTripId, { coverImage: url });
+            }
+        }
+    };
+
+    const setEvents = async (eventsOrUpdater: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => {
+        const newEvents = typeof eventsOrUpdater === 'function'
+            ? eventsOrUpdater(events)
+            : eventsOrUpdater;
+
+        setEventsState(newEvents);
+
+        if (currentTripId) {
+            if (isOnline) {
+                // Convert to DB format and upsert
+                const dbEvents = newEvents.map((e, i) =>
+                    timelineEventToDbEvent(e, currentTripId, i)
+                ) as DbEvent[];
+                await db.upsertEvents(dbEvents);
+            } else {
+                // Fallback to IndexedDB
+                const storedEvents: StoredEvent[] = newEvents.map(e => ({
+                    ...e,
+                    tripId: currentTripId!,
+                    dayOffset: e.dayOffset ?? 0,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                }));
+                await storage.updateEvents(currentTripId, storedEvents);
+            }
+        }
+    };
 
     const tripDates = useMemo(() => {
         return Array.from({ length: tripDuration }, (_, i) => {
@@ -134,12 +295,16 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
     return (
         <TripContext.Provider value={{
+            isLoading,
+            isOnline,
             tripName, setTripName,
             startDate, setStartDate,
             tripDuration, setTripDuration,
             placesCoverImage, setPlacesCoverImage,
             events, setEvents,
-            tripDates
+            tripDates,
+            currentTripId,
+            refreshData: loadData,
         }}>
             {children}
         </TripContext.Provider>
@@ -153,3 +318,5 @@ export function useTrip() {
     }
     return context;
 }
+
+
