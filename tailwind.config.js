@@ -7,7 +7,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Outfit', 'sans-serif'],
+                sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"San Francisco"', '"Helvetica Neue"', 'sans-serif'],
             },
             colors: {
                 background: 'hsl(var(--background))',
@@ -22,7 +22,7 @@ export default {
                 '5xl': '2.5rem',
             },
             boxShadow: {
-                'glow': '0 4px 20px -4px rgba(255, 95, 45, 0.4)',
+
             }
         },
     },

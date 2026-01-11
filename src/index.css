@@ -16,7 +16,7 @@
     /* FORCE Light Background */
     background-color: #F8F9FA !important;
     color: #0F172A !important;
-    font-family: 'Outfit', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Helvetica Neue", sans-serif;
   }
 }
 
@@ -35,9 +35,7 @@
     border: 1px solid rgb(0 0 0 / 0.03);
   }
 
-  .shadow-glow {
-    box-shadow: 0 4px 20px -4px rgba(255, 95, 45, 0.4);
-  }
+
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;

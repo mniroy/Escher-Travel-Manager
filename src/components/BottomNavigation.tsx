@@ -9,8 +9,8 @@ export function BottomNavigation() {
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-t border-white/10 px-6 py-2 pb-4">
             <div className="flex justify-between items-end max-w-sm mx-auto h-12">
                 <NavLink to="/" icon={<Calendar size={20} strokeWidth={2.5} />} active={isActive('/')} label="Itinerary" />
-                <NavLink to="/map" icon={<Map size={20} strokeWidth={2.5} />} active={isActive('/map')} label="Route" />
                 <NavLink to="/places" icon={<MapPin size={20} strokeWidth={2.5} />} active={isActive('/places')} label="Places" />
+                <NavLink to="/map" icon={<Map size={20} strokeWidth={2.5} />} active={isActive('/map')} label="Route" />
                 <NavLink to="/documents" icon={<FileText size={20} strokeWidth={2.5} />} active={isActive('/documents')} label="Documents" />
             </div>
         </nav>

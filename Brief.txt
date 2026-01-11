@@ -2,7 +2,7 @@ Brief: Escher Travel Manager
 
 A smart, mobile-first travel itinerary application designed for dynamic schedule management.
 
-## Core Features Implementated
+## Core Features Implemented
 
 ### 1. Smart Timeline & Scheduling
 - **Dynamic Time Ripple**: Automatically recalculates the entire day's schedule when an event's time changes or is checked into.
@@ -23,8 +23,19 @@ A smart, mobile-first travel itinerary application designed for dynamic schedule
 - **Category Filtering**: Filter timeline by Transport, Stay, Eat, or Play.
 - **Smart Parsing (Mock)**: "Paste & Preview" flow to interpret raw text into structured itinerary data.
 
-### 4. UI/UX Design
-- **Mobile-First Actions**: Important actions (Check In, Skip, Insert) are always visible and touch-friendly, not hidden behind hovers.
-- **Visual Statuses**: Distinct visual states for "Scheduled", "Checked In", and "Skipped" items.
-- **Glassmorphism Aesthetic**: Modern dark-themed UI with translucent panels and vibrant accents.
-- **Travel Badges**: Centered badges on the timeline connector showing travel time and mode.
+### 4. Smart Optimization & Routing
+- **One-Tap Optimization**: "Optimize Route" feature reorders the day's events simulation to improve efficiency, complete with loading states and fluid animations.
+- **Dark Mode Map**: Route Map page fully themed to match the app's "Black & Blue" aesthetic (removing standard map colors).
+- **Integrated Date Picker**: Map page features a horizontal date selector synced with the main itinerary context to visualize routes for specific days.
+- **Smart Route Details**: Floating route card displays optimized stop info and dynamically updates based on the selected date.
+
+### 5. Intelligent Document Management
+- **AI Auto-Categorization**: Files are automatically tagged (Transport, Stay, Identity, Finance) based on filename analysis.
+- **Smart Boarding Pass Import**: Uploading a file named "boarding pass" triggers an automated workflow that creates a new Flight Card directly in the Itinerary.
+- **Contextual Sorting**: Options to sort documents by "Recent" or "Group by Category" with clean section headers.
+- **Professional UI**: Muted, non-neon color palette for file types, ensuring a clean and legible document list.
+
+### 6. UI/UX Refinement
+- **Native Typography**: Implemented San Francisco system font stack for a premium, platform-native textual experience.
+- **Premium Dark Theme**: Removed excessive "glow" effects in favor of sophisticated high-contrast dark grays and solid blue (#007AFF) accents.
+- **Fluid Motion**: Integrated `framer-motion` for smooth layout transitions when reordering or adding items.
