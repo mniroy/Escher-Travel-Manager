@@ -26,47 +26,49 @@ export interface ParsePlaceResult {
 
 // Extract place info from Google Maps URL
 function extractPlaceInfo(url: string): { placeId?: string; query?: string; coords?: { lat: number; lng: number } } {
+    const result: { placeId?: string; query?: string; coords?: { lat: number; lng: number } } = {};
+
     try {
         const urlObj = new URL(url);
 
-        // Try to extract place ID from data parameter (format: !1sChIJ...)
-        const dataMatch = url.match(/!1s(0x[a-f0-9]+:[a-f0-9]+|ChIJ[A-Za-z0-9_-]+)/);
+        // FIRST: Extract name from URL path (most reliable for display)
+        const placeMatch = url.match(/\/place\/([^/@]+)/);
+        if (placeMatch) {
+            result.query = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        }
+
+        // Extract place ID from data parameter (format: !1sChIJ... or !1s0x...)
+        const dataMatch = url.match(/!1s(0x[a-f0-9]+:0x[a-f0-9]+|ChIJ[A-Za-z0-9_-]+)/i);
         if (dataMatch) {
-            return { placeId: dataMatch[1] };
+            result.placeId = dataMatch[1];
         }
 
         // Try to extract from place_id query param
         const placeIdParam = urlObj.searchParams.get('place_id');
         if (placeIdParam) {
-            return { placeId: placeIdParam };
+            result.placeId = placeIdParam;
         }
 
-        // Try to extract coordinates from URL
+        // Extract coordinates from URL
         const coordsMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
         if (coordsMatch) {
-            return {
-                coords: {
-                    lat: parseFloat(coordsMatch[1]),
-                    lng: parseFloat(coordsMatch[2])
-                }
+            result.coords = {
+                lat: parseFloat(coordsMatch[1]),
+                lng: parseFloat(coordsMatch[2])
             };
         }
 
-        // Try to extract search query
-        const qParam = urlObj.searchParams.get('q');
-        if (qParam) {
-            return { query: qParam };
+        // Try to extract search query as fallback for name
+        if (!result.query) {
+            const qParam = urlObj.searchParams.get('q');
+            if (qParam) {
+                result.query = qParam;
+            }
         }
 
-        // Extract name from URL path (last resort)
-        const placeMatch = url.match(/\/place\/([^/@]+)/);
-        if (placeMatch) {
-            return { query: decodeURIComponent(placeMatch[1].replace(/\+/g, ' ')) };
-        }
-
-        return {};
+        return result;
     } catch {
-        return {};
+        return result;
     }
 }
 
