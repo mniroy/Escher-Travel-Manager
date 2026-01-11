@@ -344,14 +344,18 @@ export default function ItineraryPage() {
                     </AnimatePresence>
                 </motion.div>
 
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-zinc-50/10 z-10 pointer-events-none" />
-                {/* Seamless Blend to Light Content */}
-                <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-zinc-50 via-zinc-50/60 to-transparent z-10 pointer-events-none" />
+                <div className="absolute inset-0 bg-black/20 z-10 pointer-events-none" />
 
-                <div className="relative z-10 flex justify-between items-end">
+                {/* Rounded Edge Cap */}
+                <div className="absolute -bottom-[1px] left-0 right-0 h-10 bg-zinc-50 rounded-t-[2rem] z-20 pointer-events-none shadow-[0_-5px_15px_rgba(0,0,0,0.05)] flex justify-center pt-3">
+                    {/* Optional "Pull" Indicator pill */}
+                    <div className="w-12 h-1.5 bg-zinc-200 rounded-full" />
+                </div>
+
+                <div className="relative z-10 flex justify-between items-end pb-4">
                     <div>
                         <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
-                        <div className="flex items-center text-white/80 text-xs gap-2 font-medium drop-shadow-sm">
+                        <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
                             <span>{getFormattedDateRange()}</span>
                         </div>
                     </div>
