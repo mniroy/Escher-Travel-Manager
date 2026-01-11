@@ -15,36 +15,27 @@
     ],
     "routes": [
         {
+            "src": "/sw.js",
+            "headers": {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Service-Worker-Allowed": "/"
+            },
+            "dest": "/dist/sw.js"
+        },
+        {
+            "src": "/manifest.webmanifest",
+            "headers": {
+                "Content-Type": "application/manifest+json"
+            },
+            "dest": "/dist/manifest.webmanifest"
+        },
+        {
             "src": "/api/(.*)",
             "dest": "/api/$1"
         },
         {
             "src": "/(.*)",
             "dest": "/dist/$1"
-        }
-    ],
-    "headers": [
-        {
-            "source": "/sw.js",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "no-cache, no-store, must-revalidate"
-                },
-                {
-                    "key": "Service-Worker-Allowed",
-                    "value": "/"
-                }
-            ]
-        },
-        {
-            "source": "/manifest.webmanifest",
-            "headers": [
-                {
-                    "key": "Content-Type",
-                    "value": "application/manifest+json"
-                }
-            ]
         }
     ]
 }
