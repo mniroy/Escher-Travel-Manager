@@ -1,10 +1,10 @@
 import { Layout } from '../components/Layout';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
-import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles } from 'lucide-react';
+import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +25,7 @@ export default function ItineraryPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [isControlsExpanded, setIsControlsExpanded] = useState(true);
 
     // Undo History State
     const [_history, setHistory] = useState<TimelineEvent[][]>([]);
@@ -266,6 +267,18 @@ export default function ItineraryPage() {
         return `${MONTHS[start.getMonth()]} ${start.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
     };
 
+    // Background Image Cycling
+    const validImages = events.map(e => e.image).filter((img): img is string => !!img);
+    const [bgIndex, setBgIndex] = useState(0);
+
+    useEffect(() => {
+        if (validImages.length <= 1) return;
+        const interval = setInterval(() => {
+            setBgIndex(prev => (prev + 1) % validImages.length);
+        }, 8000);
+        return () => clearInterval(interval);
+    }, [validImages.length]);
+
     return (
         <Layout>
             <TripSettingsModal
@@ -295,20 +308,27 @@ export default function ItineraryPage() {
             <header className="relative z-10 min-h-[280px] flex flex-col justify-end p-6 overflow-hidden">
                 {/* Background Image */}
                 <div className="absolute inset-0 z-0 bg-zinc-900">
-                    {events.find(e => e.image)?.image ? (
-                        <img
-                            src={events.find(e => e.image)?.image}
-                            alt="Trip Header"
-                            className="w-full h-full object-cover animate-in fade-in duration-700"
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                            <h3 className="text-zinc-700 font-bold text-xl tracking-[0.2em] animate-pulse">waiting for your plan...</h3>
-                        </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />
+                    <AnimatePresence mode='popLayout'>
+                        {validImages.length > 0 ? (
+                            <motion.img
+                                key={validImages[bgIndex]}
+                                src={validImages[bgIndex]}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.5 }}
+                                alt="Trip Header"
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                                <h3 className="text-zinc-700 font-bold text-xl tracking-[0.2em] animate-pulse">waiting for your plan...</h3>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20 z-10" />
                     {/* Seamless Blend to Dark Content */}
-                    <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent z-10" />
                 </div>
 
                 <div className="relative z-10 flex justify-between items-end">
@@ -330,67 +350,85 @@ export default function ItineraryPage() {
             </header>
 
             {/* Sticky Actions Bar */}
-            <div className="sticky top-0 z-30 border-b border-white/5 shadow-sm pt-2 bg-black/95 backdrop-blur-xl">
-                <div className="pb-2">
-                    <CategoryFilter selected={category} onSelect={setCategory} />
+            <div className="sticky top-0 z-30 border-b border-white/5 shadow-sm bg-black/95 backdrop-blur-xl transition-all">
+                <div className="w-full flex justify-center pb-1 pt-2" onClick={() => setIsControlsExpanded(!isControlsExpanded)}>
+                    <button className="text-zinc-500 hover:text-white transition-colors">
+                        {isControlsExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
                 </div>
 
-                {/* Date Selector */}
-                <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
-                    {tripDates.map((dateObj, i) => {
-                        const isSelected = selectedDayOffsets.includes(dateObj.offset);
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => toggleDate(dateObj.offset)}
-                                className={`
-                                    flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
-                                    ${isSelected
-                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
-                                `}
-                            >
-                                <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
-                                <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
-                            </button>
-                        )
-                    })}
-                </div>
-
-                {/* Edit Controls Bar */}
-                <div className="px-6 py-3 flex justify-between items-center bg-white/5 backdrop-blur-md border-t border-white/5">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={handleOptimize}
-                            disabled={isOptimizing}
-                            className={`
-                                h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
-                                ${isOptimizing
-                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
-                                    : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
-                                }
-                            `}
+                <AnimatePresence>
+                    {isControlsExpanded && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            className="overflow-hidden"
                         >
-                            <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
-                            {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
-                        </button>
+                            <div className="pb-2">
+                                <CategoryFilter selected={category} onSelect={setCategory} />
+                            </div>
 
-                        <button
-                            onClick={() => setIsEditing(!isEditing)}
-                            className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
-                                ${isEditing
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
-                            `}
-                        >
-                            {isEditing ? <Check size={12} /> : <Pencil size={10} />}
-                            {isEditing ? 'Done' : 'Edit'}
-                        </button>
-                    </div>
-                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
-                        {filteredEvents.length} Items
-                    </span>
-                </div>
+                            {/* Date Selector */}
+                            <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
+                                {tripDates.map((dateObj, i) => {
+                                    const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => toggleDate(dateObj.offset)}
+                                            className={`
+                                                flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
+                                                ${isSelected
+                                                    ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
+                                                    : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
+                                            `}
+                                        >
+                                            <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
+                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Edit Controls Bar */}
+                            <div className="px-6 py-3 flex justify-between items-center bg-white/5 backdrop-blur-md border-t border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleOptimize}
+                                        disabled={isOptimizing}
+                                        className={`
+                                            h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
+                                            ${isOptimizing
+                                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
+                                                : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
+                                            }
+                                        `}
+                                    >
+                                        <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
+                                        {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setIsEditing(!isEditing)}
+                                        className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
+                                            ${isEditing
+                                                ? 'bg-white text-black border-white'
+                                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
+                                        `}
+                                    >
+                                        {isEditing ? <Check size={12} /> : <Pencil size={10} />}
+                                        {isEditing ? 'Done' : 'Edit'}
+                                    </button>
+                                </div>
+                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
+                                    {filteredEvents.length} Items
+                                </span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
