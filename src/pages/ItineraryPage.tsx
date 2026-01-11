@@ -360,13 +360,7 @@ export default function ItineraryPage() {
 
                 <div className="absolute inset-0 bg-black/20 z-10 pointer-events-none" />
 
-                {/* Rounded Edge Cap */}
-                <div className="absolute -bottom-[1px] left-0 right-0 h-10 bg-zinc-50 rounded-t-[2rem] z-20 pointer-events-none shadow-[0_-5px_15px_rgba(0,0,0,0.05)] flex justify-center pt-3">
-                    {/* Optional "Pull" Indicator pill */}
-                    <div className="w-12 h-1.5 bg-zinc-200 rounded-full" />
-                </div>
-
-                <div className="relative z-10 flex justify-between items-end pb-4">
+                <div className="relative z-10 flex justify-between items-end pb-8">
                     <div>
                         <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
                         <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
@@ -385,162 +379,168 @@ export default function ItineraryPage() {
             </header>
 
             {/* Sticky Actions Bar */}
-            <div className="sticky top-0 z-30 border-b border-zinc-200 shadow-sm bg-white/90 backdrop-blur-xl transition-all">
-                <div className="w-full flex justify-center pb-1 pt-2" onClick={() => setIsControlsExpanded(!isControlsExpanded)}>
-                    <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                        {isControlsExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            <div className="sticky top-0 z-30 transition-all -mt-6">
+                {/* Collapse Toggle Tab */}
+                <div className="flex justify-center relative z-20">
+                    <button
+                        onClick={() => setIsControlsExpanded(!isControlsExpanded)}
+                        className="bg-zinc-50/95 backdrop-blur-xl border-t border-x border-zinc-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] rounded-t-2xl w-16 h-6 flex items-center justify-center text-zinc-400 hover:text-[#007AFF] transition-all active:scale-95"
+                    >
+                        {isControlsExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
                     </button>
                 </div>
 
-                <AnimatePresence>
-                    {isControlsExpanded && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="overflow-hidden"
-                        >
-                            <div className="pb-2">
-                                <CategoryFilter selected={category} onSelect={setCategory} />
-                            </div>
+                <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-xl overflow-hidden mt-[-1px]">
 
-                            {/* Date Selector */}
-                            <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
-                                {tripDates.map((dateObj, i) => {
-                                    const isSelected = selectedDayOffsets.includes(dateObj.offset);
-                                    return (
-                                        <button
-                                            key={i}
-                                            onClick={() => toggleDate(dateObj.offset)}
-                                            className={`
+                    <AnimatePresence>
+                        {isControlsExpanded && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pb-2">
+                                    <CategoryFilter selected={category} onSelect={setCategory} />
+                                </div>
+
+                                {/* Date Selector */}
+                                <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
+                                    {tripDates.map((dateObj, i) => {
+                                        const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={() => toggleDate(dateObj.offset)}
+                                                className={`
                                                 flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
                                                 ${isSelected
-                                                    ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                    : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
+                                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
+                                                        : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
                                             `}
-                                        >
-                                            <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
-                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                                            >
+                                                <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
+                                                <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
 
-                            {/* Edit Controls Bar */}
-                            <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/50 backdrop-blur-md border-t border-zinc-200">
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={handleOptimize}
-                                        disabled={isOptimizing}
-                                        className={`
+                                {/* Edit Controls Bar */}
+                                <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/50 backdrop-blur-md border-t border-zinc-200">
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleOptimize}
+                                            disabled={isOptimizing}
+                                            className={`
                                             h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
                                             ${isOptimizing
-                                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
-                                                : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
-                                            }
+                                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
+                                                    : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
+                                                }
                                         `}
-                                    >
-                                        <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
-                                        {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
-                                    </button>
-
-                                    <button
-                                        onClick={() => setIsEditing(!isEditing)}
-                                        className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
-                                            ${isEditing
-                                                ? 'bg-white text-black border-white'
-                                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
-                                        `}
-                                    >
-                                        {isEditing ? <Check size={12} /> : <Pencil size={10} />}
-                                        {isEditing ? 'Done' : 'Edit'}
-                                    </button>
-                                </div>
-                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
-                                    {filteredEvents.length} Items
-                                </span>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
-                <AnimatePresence mode='popLayout'>
-                    {filteredEvents.length > 0 ? (
-                        filteredEvents.map((event, index) => (
-                            <motion.div
-                                layout
-                                key={event.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.3 }}
-                                className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                                style={{ animationDelay: `${index * 50}ms` }}
-                            >
-
-                                {/* Insert Zone BEFORE item */}
-                                {isEditing && (
-                                    <div
-                                        onClick={() => openModalAt(index)}
-                                        className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
-                                    >
-                                        <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
-                                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
-                                                <Plus size={10} strokeWidth={3} /> INSERT HERE
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
-                                    <TimelineItem
-                                        event={event}
-                                        isLast={index === filteredEvents.length - 1}
-                                        icon={getIcon(event.type)}
-                                        // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
-                                        onCheckIn={handleCheckIn}
-                                        onSkip={handleSkip}
-                                    />
-                                    {isEditing && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                            className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
                                         >
-                                            <X size={14} strokeWidth={3} />
+                                            <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
+                                            {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
                                         </button>
-                                    )}
+
+                                        <button
+                                            onClick={() => setIsEditing(!isEditing)}
+                                            className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
+                                            ${isEditing
+                                                    ? 'bg-white text-black border-white'
+                                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
+                                        `}
+                                        >
+                                            {isEditing ? <Check size={12} /> : <Pencil size={10} />}
+                                            {isEditing ? 'Done' : 'Edit'}
+                                        </button>
+                                    </div>
+                                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
+                                        {filteredEvents.length} Items
+                                    </span>
                                 </div>
                             </motion.div>
-                        ))
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
-                            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
-                                <MapPin size={24} className="opacity-50 text-zinc-500" />
-                            </div>
-                            <button
-                                onClick={() => openModalAt(0)}
-                                className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                            >
-                                <Plus size={16} strokeWidth={3} />
-                                Add First Activity
-                            </button>
-                        </div>
-                    )}
+                        )}
+                    </AnimatePresence>
+                </div>
 
-                    {/* Final Insert Zone at the end */}
-                    {isEditing && filteredEvents.length > 0 && (
-                        <div
-                            onClick={() => openModalAt(filteredEvents.length)}
-                            className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
-                        >
-                            + Add to End
-                        </div>
-                    )}
-                </AnimatePresence>
-            </div>
+                <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
+                    <AnimatePresence mode='popLayout'>
+                        {filteredEvents.length > 0 ? (
+                            filteredEvents.map((event, index) => (
+                                <motion.div
+                                    layout
+                                    key={event.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                                    style={{ animationDelay: `${index * 50}ms` }}
+                                >
+
+                                    {/* Insert Zone BEFORE item */}
+                                    {isEditing && (
+                                        <div
+                                            onClick={() => openModalAt(index)}
+                                            className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                                        >
+                                            <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
+                                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                                                    <Plus size={10} strokeWidth={3} /> INSERT HERE
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
+                                        <TimelineItem
+                                            event={event}
+                                            isLast={index === filteredEvents.length - 1}
+                                            icon={getIcon(event.type)}
+                                            // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
+                                            onCheckIn={handleCheckIn}
+                                            onSkip={handleSkip}
+                                        />
+                                        {isEditing && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                                className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
+                                            >
+                                                <X size={14} strokeWidth={3} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
+                                <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
+                                    <MapPin size={24} className="opacity-50 text-zinc-500" />
+                                </div>
+                                <button
+                                    onClick={() => openModalAt(0)}
+                                    className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                >
+                                    <Plus size={16} strokeWidth={3} />
+                                    Add First Activity
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Final Insert Zone at the end */}
+                        {isEditing && filteredEvents.length > 0 && (
+                            <div
+                                onClick={() => openModalAt(filteredEvents.length)}
+                                className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                            >
+                                + Add to End
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
         </Layout>
     );
 }
