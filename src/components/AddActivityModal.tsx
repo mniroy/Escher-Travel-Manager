@@ -24,6 +24,7 @@ export interface NewActivity {
     reviews?: number;
     image?: string;
     duration?: string;
+    placeId?: string; // Added placeId
 }
 
 export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddActivityModalProps) {
@@ -56,7 +57,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
         title: '',
         type: 'Play',
         time: 'TBD',
-        description: ''
+        description: '',
+        placeId: ''
     });
 
     useEffect(() => {
@@ -72,7 +74,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                     description: initialData.description || '',
                     googleMapsLink: initialData.googleMapsLink || '',
                     rating: initialData.rating,
-                    duration: initialData.duration
+                    duration: initialData.duration,
+                    placeId: initialData.placeId
                 });
                 setLink(initialData.googleMapsLink || '');
                 setDurationMinutes(parseDurationToMinutes(initialData.duration));
@@ -82,7 +85,7 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                 setStep('INPUT');
                 setLink('');
                 setDurationMinutes(60); // Default 1h
-                setFormData({ title: '', type: 'Play', time: 'TBD', description: '' });
+                setFormData({ title: '', type: 'Play', time: 'TBD', description: '', placeId: '' });
             }
         }
     }, [isOpen, initialData]);
@@ -124,7 +127,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                 googleMapsLink: place.googleMapsUrl,
                 rating: place.rating,
                 reviews: place.reviewCount,
-                image: place.photos?.[0]
+                image: place.photos?.[0],
+                placeId: place.placeId // Save the place ID
             }));
 
             setStep('PREVIEW');
@@ -139,7 +143,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
         onSave({
             ...formData,
             googleMapsLink: link,
-            duration: formatMinutesToDuration(durationMinutes)
+            duration: formatMinutesToDuration(durationMinutes),
+            placeId: formData.placeId // Ensure placeId is passed
         });
         onClose();
     };
