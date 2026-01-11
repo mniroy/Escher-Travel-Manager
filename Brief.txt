@@ -1,0 +1,30 @@
+Brief: Escher Travel Manager
+
+A smart, mobile-first travel itinerary application designed for dynamic schedule management.
+
+## Core Features Implementated
+
+### 1. Smart Timeline & Scheduling
+- **Dynamic Time Ripple**: Automatically recalculates the entire day's schedule when an event's time changes or is checked into.
+- **Check-In System**: "Check In" button sets an activity's start time to "Now" and pushes all subsequent activities forward.
+- **Skip Logic**: "Skip" button marks an activity as skipped (greyed out), removing its duration and pulling subsequent activities back to fill the gap.
+- **Travel Time Integration**: Displays estimated travel duration and mode (Walk/Drive/Transit) between consecutive locations on the connector line.
+
+### 2. Interactive "Edit Mode"
+- **Toggleable Interface**: A dedicated "Edit" toggle switches the view to manageable mode.
+- **Smart Insert Zones**: "Insert Here" buttons appear between every timeline item to add new activities at precise locations.
+- **Quick Actions**: One-tap delete with confirmation dialog.
+- **In-Place Editing**: Tap any card in edit mode to modify details (Time, Title, Duration, Links).
+- **Undo History**: 5-step undo capability to revert accidental changes.
+
+### 3. Activity Management
+- **Add Activity Modal**: Supports inputting Title, Type, Visit Duration, and Google Maps Links.
+- **Duration Stepper**: Custom ±30 minute stepper control for easy duration adjustments.
+- **Category Filtering**: Filter timeline by Transport, Stay, Eat, or Play.
+- **Smart Parsing (Mock)**: "Paste & Preview" flow to interpret raw text into structured itinerary data.
+
+### 4. UI/UX Design
+- **Mobile-First Actions**: Important actions (Check In, Skip, Insert) are always visible and touch-friendly, not hidden behind hovers.
+- **Visual Statuses**: Distinct visual states for "Scheduled", "Checked In", and "Skipped" items.
+- **Glassmorphism Aesthetic**: Modern dark-themed UI with translucent panels and vibrant accents.
+- **Travel Badges**: Centered badges on the timeline connector showing travel time and mode.

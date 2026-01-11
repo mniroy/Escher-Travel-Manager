@@ -1,0 +1,497 @@
+import { Layout } from '../components/Layout';
+import { useState, useMemo } from 'react';
+import { Category, CategoryFilter } from '../components/CategoryFilter';
+import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
+import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
+import { TripSettingsModal } from '../components/TripSettingsModal';
+import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X } from 'lucide-react';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Mock Data using relative Day Offsets (0 = Day 1, 1 = Day 2, etc.)
+const MOCK_EVENTS_DATA: TimelineEvent[] = [
+    {
+        id: '1',
+        type: 'Transport',
+        title: 'Arrive at Zurich International Airport',
+        time: '03:00 PM',
+        description: 'Terminal 1, Flight LX180',
+        dayOffset: 0,
+        duration: '45m'
+    },
+    {
+        id: '2',
+        type: 'Eat',
+        title: 'Elfrentes Roasting',
+        time: '04:00 PM',
+        endTime: '11:00 PM',
+        status: 'Open now',
+        rating: 4.7,
+        reviews: 2735,
+        description: 'Specialty coffee roaster with light bites.',
+        dayOffset: 0,
+        travelTime: '30m',
+        travelMode: 'drive',
+        duration: '1h 30m'
+    },
+    {
+        id: '3',
+        type: 'Play',
+        title: 'Spend the day exploring Zurich',
+        time: '05:00 PM',
+        description: 'Old Town, Lake Zurich, and Bahnhofstrasse.',
+        dayOffset: 0,
+        travelTime: '15m',
+        travelMode: 'walk',
+        duration: '3h'
+    },
+    {
+        id: '4',
+        type: 'Eat',
+        title: 'Elmira fine dining',
+        time: '07:00 PM',
+        rating: 4.9,
+        reviews: 854,
+        description: 'Modern Swiss cuisine.',
+        dayOffset: 0,
+        travelTime: '20m',
+        travelMode: 'transit',
+        duration: '2h'
+    },
+    {
+        id: '5',
+        type: 'Stay',
+        title: 'BVLGARI Hotel',
+        time: '07:45 PM',
+        description: 'Check-in confirmed.',
+        dayOffset: 0,
+        travelTime: '10m',
+        travelMode: 'drive'
+    },
+    {
+        id: '6',
+        type: 'Eat',
+        title: 'Cafe Odeon',
+        time: '09:00 AM',
+        description: 'Historic Art Nouveau café.',
+        dayOffset: 1,
+        duration: '1h'
+    },
+    {
+        id: '7',
+        type: 'Play',
+        title: 'Kunsthaus Zürich',
+        time: '11:00 AM',
+        description: 'Visit the art museum.',
+        dayOffset: 1,
+        duration: '2h 15m'
+    }
+];
+
+export default function ItineraryPage() {
+    // Trip Settings State
+    const [tripName, setTripName] = useState('Bali Trip');
+    const [startDate, setStartDate] = useState(new Date('2024-08-21'));
+    const [tripDuration, setTripDuration] = useState(9);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    const [category, setCategory] = useState<Category>('All');
+    const [selectedDayOffsets, setSelectedDayOffsets] = useState<number[]>([0]); // 0-indexed day offsets
+    const [events, setEvents] = useState(MOCK_EVENTS_DATA);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Dynamic Date Generation
+    const tripDates = useMemo(() => {
+        return Array.from({ length: tripDuration }, (_, i) => {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            return {
+                dateObj: d,
+                dayName: DAYS[d.getDay()],
+                dateNum: d.getDate(),
+                fullDate: `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`,
+                offset: i
+            };
+        });
+    }, [startDate, tripDuration]);
+
+    // Undo History State
+    const [history, setHistory] = useState<TimelineEvent[][]>([]);
+
+    // Edit Mode State
+    const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
+
+    const addToHistory = (currentEvents: TimelineEvent[]) => {
+        setHistory(prev => {
+            const newHistory = [...prev, currentEvents];
+            if (newHistory.length > 5) {
+                return newHistory.slice(newHistory.length - 5);
+            }
+            return newHistory;
+        });
+    };
+
+    // We store the insert index to know where to place the new item
+    const [insertIndex, setInsertIndex] = useState<number | null>(null);
+
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'Transport': return <Plane size={18} />;
+            case 'Eat': return <Coffee size={18} />;
+            case 'Stay': return <Bed size={18} />;
+            default: return <MapPin size={18} />;
+        }
+    };
+
+    // --- Time Utilities and Logic ---
+    const parseTime = (timeStr: string): number => {
+        if (!timeStr) return 0;
+        const [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+    };
+
+    const formatTime = (minutes: number): string => {
+        let h = Math.floor(minutes / 60);
+        let m = Math.floor(minutes % 60);
+        const period = h >= 12 ? 'PM' : 'AM';
+        if (h > 12) h -= 12;
+        if (h === 0) h = 12;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const parseDuration = (durStr?: string): number => {
+        if (!durStr) return 0;
+        let minutes = 0;
+        const hMatch = durStr.match(/(\d+)h/);
+        const mMatch = durStr.match(/(\d+)m/);
+        if (hMatch) minutes += parseInt(hMatch[1]) * 60;
+        if (mMatch) minutes += parseInt(mMatch[1]);
+        return minutes;
+    };
+
+    const handleCheckIn = (id: string) => {
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = now.getMinutes();
+        const period = hours >= 12 ? 'PM' : 'AM';
+        if (hours > 12) hours -= 12;
+        if (hours === 0) hours = 12;
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+
+        setEvents(prev => {
+            const index = prev.findIndex(e => e.id === id);
+            if (index === -1) return prev;
+
+            const nextEvents = [...prev];
+            nextEvents[index] = { ...nextEvents[index], status: 'Checked In', time: timeString };
+
+            let duration = parseDuration(nextEvents[index].duration || '60m');
+            // If checking in, we assume it takes the full duration starting NOW
+            if (nextEvents[index].status === 'Skipped') duration = 0;
+
+            let cursorTime = parseTime(timeString) + duration;
+
+            for (let i = index + 1; i < nextEvents.length; i++) {
+                const evt = nextEvents[i];
+                const travel = parseDuration(evt.travelTime);
+                const newStart = cursorTime + travel;
+
+                nextEvents[i] = { ...evt, time: formatTime(newStart) };
+
+                let dur = parseDuration(evt.duration || '60m');
+                if (evt.status === 'Skipped') dur = 0;
+                cursorTime = newStart + dur;
+            }
+            return nextEvents;
+        });
+    };
+
+    const handleSkip = (id: string) => {
+        setEvents(prev => {
+            // Toggle skip
+            const updated = prev.map(e => e.id === id ? { ...e, status: (e.status === 'Skipped' ? 'Scheduled' : 'Skipped') as any } : e);
+
+            // Recalculate full day
+            if (!updated || updated.length === 0) return updated;
+            let cursorTime = parseTime(updated[0].time); // Anchor to first event
+
+            return updated.map((event, index) => {
+                if (index > 0) {
+                    const travelMins = parseDuration(event.travelTime);
+                    const startTime = cursorTime + travelMins;
+                    event = { ...event, time: formatTime(startTime) };
+                    cursorTime = startTime;
+                } else {
+                    cursorTime = parseTime(event.time);
+                }
+
+                let durationMins = parseDuration(event.duration || '60m');
+                if (event.status === 'Skipped') durationMins = 0;
+
+                cursorTime += durationMins;
+                return event;
+            });
+        });
+    };
+
+    const toggleDate = (offset: number) => {
+        setSelectedDayOffsets(prev => {
+            if (prev.includes(offset)) {
+                // Don't allow unselecting the last date (always keep at least one)
+                if (prev.length === 1) return prev;
+                return prev.filter(d => d !== offset);
+            } else {
+                return [...prev, offset].sort((a, b) => a - b);
+            }
+        });
+    };
+
+    const handleAddActivity = (activityData: NewActivity) => {
+        const targetOffset = selectedDayOffsets[0] || 0;
+
+        addToHistory(events); // Save state
+
+        if (editingEvent && activityData.id) {
+            // UPDATE existing event
+            setEvents(prev => prev.map(e =>
+                e.id === activityData.id
+                    ? { ...e, ...activityData, dayOffset: e.dayOffset }
+                    : e
+            ));
+            setEditingEvent(null);
+        } else {
+            // CREATE new event
+            const newEvent: TimelineEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                ...activityData,
+                dayOffset: targetOffset
+            };
+
+            setEvents(prev => {
+                if (insertIndex !== null) {
+                    const thisDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetOffset);
+                    const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetOffset);
+                    const newDayList = [...thisDayEvents];
+                    newDayList.splice(insertIndex, 0, newEvent);
+                    return [...otherEvents, ...newDayList];
+                }
+                return [...prev, newEvent];
+            });
+            setInsertIndex(null);
+        }
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        if (window.confirm('Are you sure you want to remove this activity?')) {
+            addToHistory(events); // Save current state before changing
+            setEvents(prev => prev.filter(e => e.id !== id));
+        }
+    };
+
+    const openModalAt = (index: number) => {
+        setInsertIndex(index);
+        setEditingEvent(null); // Ensure we are not in edit mode
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (event: TimelineEvent) => {
+        if (!isEditing) return; // Only allow editing specific items when in Edit Mode
+        setEditingEvent(event);
+        setIsModalOpen(true);
+    };
+
+    const filteredEvents = events.filter(e => {
+        const matchesCategory = category === 'All' || e.type === category;
+        const matchesDate = selectedDayOffsets.includes(e.dayOffset ?? 0);
+        return matchesCategory && matchesDate;
+    });
+
+    const getFormattedDateRange = () => {
+        if (tripDates.length === 0) return '';
+        const start = tripDates[0].dateObj;
+        const end = tripDates[tripDates.length - 1].dateObj;
+        return `${MONTHS[start.getMonth()]} ${start.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+    };
+
+    return (
+        <Layout>
+            <TripSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                onSave={(settings) => {
+                    setTripName(settings.tripName);
+                    setStartDate(new Date(settings.startDate));
+                    setTripDuration(settings.duration);
+                    setIsSettingsOpen(false);
+                }}
+                initialSettings={{
+                    tripName,
+                    startDate: startDate.toISOString().split('T')[0],
+                    duration: tripDuration
+                }}
+            />
+
+            <AddActivityModal
+                isOpen={isModalOpen}
+                onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
+                onSave={handleAddActivity}
+                initialData={editingEvent}
+            />
+
+            {/* Header Area */}
+            <header className="relative z-10 min-h-[280px] flex flex-col justify-end p-6 overflow-hidden">
+                {/* Background Image */}
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src="/src/assets/bali-header.jpg"
+                        alt="Bali Landscape"
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />
+                    {/* Seamless Blend to Dark Content */}
+                    <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent" />
+                </div>
+
+
+
+                <div className="relative z-10 flex justify-between items-end">
+                    <div>
+                        <h1 className="text-4xl font-extrabold text-white mb-2 leading-tight drop-shadow-md">{tripName}</h1>
+                        <div className="flex items-center text-white/80 text-sm gap-2 font-medium drop-shadow-sm">
+                            <span>{getFormattedDateRange()}</span>
+                        </div>
+                    </div>
+                    {/* User Avatar / Profile */}
+                    {/* Settings Button (Replaces Avatar) */}
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-lg hover:bg-white/20 active:scale-95 transition-all"
+                    >
+                        <Settings size={22} strokeWidth={2} />
+                    </button>
+                </div>
+            </header>
+
+            {/* Sticky Actions Bar */}
+            <div className="sticky top-0 z-30 border-b border-white/5 shadow-sm pt-2 bg-black/95 backdrop-blur-xl">
+                <div className="pb-2">
+                    <CategoryFilter selected={category} onSelect={setCategory} />
+                </div>
+
+                {/* Date Selector */}
+                <div className="flex gap-3 overflow-x-auto no-scrollbar px-6 py-4 pb-5">
+                    {tripDates.map((dateObj, i) => {
+                        const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                        return (
+                            <button
+                                key={i}
+                                onClick={() => toggleDate(dateObj.offset)}
+                                className={`
+                                    flex flex-col items-center justify-center min-w-[4.5rem] h-[5.5rem] rounded-[2rem] transition-all duration-300 border
+                                    ${isSelected
+                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-lg shadow-blue-500/40 scale-105 z-10'
+                                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
+                                `}
+                            >
+                                <span className={`text-xl leading-none mb-1 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* Edit Controls Bar */}
+                <div className="px-6 py-3 flex justify-between items-center bg-white/5 backdrop-blur-md border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsEditing(!isEditing)}
+                            className={`h-9 px-4 rounded-full border flex items-center gap-2 text-xs font-bold transition-all
+                                ${isEditing
+                                    ? 'bg-white text-black border-white'
+                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
+                            `}
+                        >
+                            {isEditing ? <Check size={14} /> : <Pencil size={12} />}
+                            {isEditing ? 'Done' : 'Edit'}
+                        </button>
+                    </div>
+                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
+                        {filteredEvents.length} Items
+                    </span>
+                </div>
+            </div>
+
+            <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
+                {filteredEvents.length > 0 ? (
+                    filteredEvents.map((event, index) => (
+                        <div key={event.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+
+                            {/* Insert Zone BEFORE item */}
+                            {isEditing && (
+                                <div
+                                    onClick={() => openModalAt(index)}
+                                    className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                                >
+                                    <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
+                                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                                            <Plus size={10} strokeWidth={3} /> INSERT HERE
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
+                                <TimelineItem
+                                    event={event}
+                                    isLast={index === filteredEvents.length - 1}
+                                    icon={getIcon(event.type)}
+                                    // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
+                                    onCheckIn={handleCheckIn}
+                                    onSkip={handleSkip}
+                                />
+                                {isEditing && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                        className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
+                                    >
+                                        <X size={14} strokeWidth={3} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
+                        <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                            <MapPin size={24} className="opacity-50 text-zinc-400" />
+                        </div>
+                        <p className="font-medium text-zinc-500">No plans yet.</p>
+                        {isEditing && (
+                            <button
+                                onClick={() => openModalAt(0)}
+                                className="mt-4 px-6 py-2 bg-zinc-100 text-zinc-900 rounded-full text-sm font-bold hover:bg-zinc-200 transition-colors"
+                            >
+                                + Add First Activity
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Final Insert Zone at the end */}
+                {isEditing && filteredEvents.length > 0 && (
+                    <div
+                        onClick={() => openModalAt(filteredEvents.length)}
+                        className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                    >
+                        + Add to End
+                    </div>
+                )}
+            </div>
+        </Layout>
+    );
+}

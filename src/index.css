@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Hardcoded HEX values to prevent variable resolution issues */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --primary: 16 100% 59%;
+    --surface: 0 0% 100%;
+  }
+
+  html,
+  body {
+    /* FORCE Light Background */
+    background-color: #F8F9FA !important;
+    color: #0F172A !important;
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer components {
+  .shadow-card {
+    background-color: #ffffff !important;
+    border-radius: 2rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    border: 1px solid rgb(0 0 0 / 0.03);
+  }
+
+  .glass-panel {
+    background-color: #ffffff !important;
+    border-radius: 2rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    border: 1px solid rgb(0 0 0 / 0.03);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 4px 20px -4px rgba(255, 95, 45, 0.4);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

@@ -1,0 +1,261 @@
+import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Footprints, Car } from 'lucide-react';
+import { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+
+export interface TimelineEvent {
+    id: string;
+    type: 'Transport' | 'Stay' | 'Eat' | 'Play';
+    title: string;
+    time: string;
+    endTime?: string;
+    description?: string;
+    rating?: number;
+    reviews?: number;
+    image?: string;
+    status?: string | 'Checked In' | 'Skipped';
+    duration?: string;
+    googleMapsLink?: string;
+    travelTime?: string;
+    travelMode?: 'drive' | 'walk' | 'transit';
+    dayOffset?: number;
+}
+
+interface TimelineItemProps {
+    event: TimelineEvent;
+    isLast?: boolean;
+    icon: ReactNode;
+    onClick?: () => void;
+    onCheckIn?: (id: string) => void;
+    onSkip?: (id: string) => void;
+}
+
+export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }: TimelineItemProps) {
+    const hasTravelTime = !!event.travelTime;
+    const isSkipped = event.status === 'Skipped';
+    const isCheckedIn = event.status === 'Checked In';
+
+    const cardStyle = isSkipped ? 'bg-zinc-900/30 opacity-60 grayscale border-zinc-800' :
+        isCheckedIn ? 'bg-blue-500/10 border-blue-500/30' :
+            'shadow-lg'; // We'll handle backgrounds inside for default two-tone
+
+
+
+    return (
+        <div className={`flex gap-4 relative group ${hasTravelTime ? 'mt-16' : ''}`}>
+
+            {/* Timeline Connector */}
+            <div className="flex flex-col items-center">
+                {/* Connector Line Extension */}
+                {hasTravelTime && (
+                    <div className="absolute -top-16 h-16 w-[2px] bg-zinc-800 left-1/2 -translate-x-1/2" />
+                )}
+
+                {/* Travel Time Badge */}
+                {hasTravelTime && (
+                    <div className={`absolute -top-16 h-16 left-1/2 -translate-x-1/2 flex items-center justify-center z-10 ${isSkipped ? 'opacity-30' : ''}`}>
+                        <div className="bg-black border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                {event.travelMode === 'walk' ? <Footprints size={10} className="opacity-70" /> : <Car size={10} className="opacity-70" />}
+                                {event.travelTime}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center z-10 shrink-0 shadow-sm relative transition-all duration-300 ${isCheckedIn ? 'bg-[#007AFF] border-[#007AFF] text-white' :
+                    isSkipped ? 'bg-zinc-900 border-zinc-800 text-zinc-600' : 'bg-black border-zinc-800 text-zinc-400 group-hover:border-[#007AFF] group-hover:text-[#007AFF]'
+                    }`}>
+                    {icon}
+                </div>
+
+                {!isLast && <div className="w-[2px] bg-zinc-800 flex-grow my-2 min-h-[40px] rounded-full" />}
+            </div>
+
+            {/* Content Card */}
+            <div className={`flex-grow pb-8 transition-all duration-300 ${isSkipped ? 'opacity-50' : ''}`}>
+
+                {/* Custom Flight Ticket UI */}
+                {event.id === '1' && event.type === 'Transport' ? (
+                    <div className="rounded-[1.75rem] overflow-hidden shadow-lg mb-2 group/card cursor-pointer transition-transform hover:scale-[1.01]" onClick={onClick}>
+                        {/* Top Section - Dark Navy */}
+                        <div className="bg-[#0B1221] p-6 relative">
+                            {/* Flight Path Visual */}
+                            <div className="flex justify-between items-start text-white relative z-10">
+                                <div className="text-left">
+                                    <div className="text-xs text-slate-400 font-bold mb-1 opacity-80">{event.time}</div>
+                                    <div className="text-3xl font-bold tracking-wider mb-1">CGK</div>
+                                    <div className="text-xs text-slate-400 font-medium">Jakarta</div>
+                                </div>
+
+                                <div className="flex-grow mx-4 relative h-12 flex flex-col items-center justify-center">
+                                    {/* Dashed Arch - using SVG for better curve control or simple border radius */}
+                                    <div className="absolute top-3 w-full h-8 border-t-2 border-dashed border-slate-600 rounded-[50%] opacity-30" style={{ transform: 'scaleY(0.5)' }}></div>
+                                    <Plane size={16} className="text-slate-400 rotate-90 absolute -top-0.5" fill="currentColor" />
+                                    <span className="text-[10px] text-slate-500 font-bold mt-5">{event.description?.match(/(\d+h \d+m)/)?.[0] || '2h 15m'}</span>
+                                </div>
+
+                                <div className="text-right">
+                                    <div className="text-xs text-slate-400 font-bold mb-1 opacity-80">{event.endTime || '11:15'}</div>
+                                    <div className="text-3xl font-bold tracking-wider mb-1">DPS</div>
+                                    <div className="text-xs text-slate-400 font-medium">Bali</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bottom Section - Bright Blue */}
+                        <div className="bg-[#007AFF] p-5 flex justify-between items-center text-white relative">
+                            {/* Decorative Cutouts */}
+                            <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full" />
+                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full" />
+
+                            <div>
+                                <div className="text-[10px] opacity-70 font-bold uppercase tracking-wider mb-0.5">Flight number</div>
+                                <div className="text-lg font-bold tracking-wide">AK 5798</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[10px] opacity-70 font-bold uppercase tracking-wider mb-0.5">Gate no.</div>
+                                <div className="text-lg font-bold tracking-wide">B2</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-[10px] opacity-70 font-bold uppercase tracking-wider mb-0.5">Seat no.</div>
+                                <div className="text-lg font-bold tracking-wide">24F</div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    // Standard Card Implementation with Two-Tone Option
+                    isSkipped || isCheckedIn ? (
+                        <div
+                            onClick={onClick}
+                            className={`p-6 rounded-[1.75rem] relative group/card cursor-pointer flex flex-col gap-3 ${cardStyle}`}
+                        >
+                            {/* Single Block Content (Checked In / Skipped) */}
+                            {/* Header */}
+                            <div className="flex justify-between items-start">
+                                <span className={`text-sm font-bold ${isCheckedIn ? 'text-[#007AFF]' : 'text-zinc-500 group-hover/card:text-[#007AFF] transition-colors'}`}>
+                                    {event.time}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {isCheckedIn && <span className="text-[10px] text-white bg-[#007AFF] px-2.5 py-1 rounded-full font-bold shadow-sm">Checked In</span>}
+                                    {isSkipped && <span className="text-[10px] text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded-full font-bold border border-zinc-800">Skipped</span>}
+                                    {event.status && !isSkipped && !isCheckedIn && event.status !== 'Scheduled' && (
+                                        <span className="text-[10px] text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-full font-bold border border-zinc-800">{event.status}</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className={`text-xl font-bold text-white mb-1.5 leading-tight ${isSkipped ? 'line-through decoration-zinc-600 text-zinc-600' : ''}`}>{event.title}</h3>
+                                {event.description && <p className="text-sm text-zinc-400 mb-2 leading-relaxed font-medium">{event.description}</p>}
+                            </div>
+                            {/* Metadata */}
+                            {(event.duration || event.rating) && (
+                                <div className="flex items-center gap-4 text-xs text-zinc-500 font-bold">
+                                    {event.rating && (
+                                        <div className="flex items-center gap-1 text-[#007AFF]">
+                                            <Star size={14} fill="currentColor" />
+                                            <span className="text-zinc-200">{event.rating}</span>
+                                            <span className="text-zinc-500 font-medium">({event.reviews})</span>
+                                        </div>
+                                    )}
+                                    {event.duration && (
+                                        <div className="flex items-center gap-1.5 bg-zinc-800 px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-300">
+                                            <Clock size={13} />
+                                            <span>{event.duration}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {/* Actions Footer - Simple for these states */}
+                            <div className="grid gap-2.5 mt-2">
+                                {isCheckedIn && (
+                                    <div className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20 text-xs font-bold cursor-default">
+                                        <CheckCircle2 size={15} />
+                                        Checked In at {event.time}
+                                    </div>
+                                )}
+                                {isSkipped && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
+                                        className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-500 hover:bg-zinc-700 transition-all text-xs font-bold w-full shadow-sm"
+                                    >
+                                        <Undo2 size={15} />
+                                        Restore Activity
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                    ) : (
+                        // Two-Tone Design (Reference: Flight Card)
+                        <div className="rounded-[1.75rem] overflow-hidden shadow-lg mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
+                            {/* Top Section: Dark Navy */}
+                            <div className="p-6 pb-6 relative">
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className="text-sm font-bold text-[#007AFF] opacity-90">{event.time}</span>
+                                    {event.status && event.status !== 'Scheduled' && (
+                                        <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50">{event.status}</span>
+                                    )}
+                                </div>
+
+                                <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide">{event.title}</h3>
+                                {event.description && <p className="text-sm text-slate-400 mb-4 leading-relaxed font-medium line-clamp-2">{event.description}</p>}
+
+                                {(event.duration || event.rating) && (
+                                    <div className="flex items-center gap-4 text-xs text-slate-500 font-bold">
+                                        {event.rating && (
+                                            <div className="flex items-center gap-1 text-[#007AFF]">
+                                                <Star size={14} fill="currentColor" />
+                                                <span className="text-slate-200">{event.rating}</span>
+                                                <span className="text-slate-500 font-medium">({event.reviews})</span>
+                                            </div>
+                                        )}
+                                        {event.duration && (
+                                            <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/5 text-slate-200 shadow-sm backdrop-blur-sm">
+                                                <Clock size={13} className="text-[#007AFF]" />
+                                                <span>{event.duration}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Bottom Section: Bright Blue */}
+                            <div className="bg-[#007AFF] p-4 relative">
+                                {/* Decorative Cutouts */}
+                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full" />
+                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full" />
+
+                                <div className="grid gap-2.5">
+                                    <Link to={`/place/${event.id}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center justify-between bg-white text-[#007AFF] text-xs font-bold py-3 px-5 rounded-xl transition-all hover:bg-white/90 hover:scale-[1.01] shadow-sm w-full"
+                                    >
+                                        <span>View Details</span>
+                                        <ArrowRight size={14} className="opacity-70" />
+                                    </Link>
+
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onCheckIn?.(event.id); }}
+                                            className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#005EC2] text-white/90 border border-white/10 hover:bg-[#0051A8] hover:text-white transition-all text-xs font-bold"
+                                        >
+                                            <CheckCircle2 size={15} />
+                                            Check In
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
+                                            className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#005EC2] text-blue-200 border border-white/10 hover:bg-[#0051A8] hover:text-white transition-all text-xs font-bold"
+                                        >
+                                            <XCircle size={15} />
+                                            Skip
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
