@@ -6,7 +6,7 @@ import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
 import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -272,8 +272,9 @@ export default function ItineraryPage() {
     const [bgIndex, setBgIndex] = useState(0);
 
     const { scrollY } = useScroll();
-    const bgY = useTransform(scrollY, [0, 500], [0, 250]);
-    const bgOpacity = useTransform(scrollY, [0, 300], [1, 0.3]);
+    const springScrollY = useSpring(scrollY, { stiffness: 100, damping: 30, restDelta: 0.001 });
+    const bgY = useTransform(springScrollY, [0, 500], [0, 150]);
+    const bgOpacity = useTransform(springScrollY, [0, 300], [1, 0.3]);
 
     useEffect(() => {
         if (validImages.length <= 1) return;
@@ -333,10 +334,11 @@ export default function ItineraryPage() {
                             </div>
                         )}
                     </AnimatePresence>
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20 z-10" />
-                    {/* Seamless Blend to Dark Content */}
-                    <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent z-10" />
                 </motion.div>
+
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20 z-10 pointer-events-none" />
+                {/* Seamless Blend to Dark Content */}
+                <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent z-10 pointer-events-none" />
 
                 <div className="relative z-10 flex justify-between items-end">
                     <div>
