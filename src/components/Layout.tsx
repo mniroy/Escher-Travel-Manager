@@ -11,7 +11,7 @@ export function Layout({ children, showNav = true }: LayoutProps) {
     return (
         <div className="min-h-screen pb-24 relative overflow-hidden bg-black">
             {/* Sync Status Indicator */}
-            <div className="fixed top-4 right-4 z-50">
+            <div className="absolute top-4 right-4 z-50">
                 <SyncIndicator />
             </div>
 
