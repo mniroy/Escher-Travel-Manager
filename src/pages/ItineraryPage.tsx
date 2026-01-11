@@ -367,9 +367,9 @@ export default function ItineraryPage() {
             </header>
 
             {/* Sticky Actions Bar */}
-            <div className="sticky top-0 z-30 border-b border-white/5 shadow-sm bg-black/95 backdrop-blur-xl transition-all">
+            <div className="sticky top-0 z-30 border-b border-zinc-200 shadow-sm bg-white/90 backdrop-blur-xl transition-all">
                 <div className="w-full flex justify-center pb-1 pt-2" onClick={() => setIsControlsExpanded(!isControlsExpanded)}>
-                    <button className="text-zinc-500 hover:text-white transition-colors">
+                    <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
                         {isControlsExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </button>
                 </div>
@@ -399,18 +399,18 @@ export default function ItineraryPage() {
                                                 flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
                                                 ${isSelected
                                                     ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                    : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
+                                                    : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
                                             `}
                                         >
-                                            <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
-                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
+                                            <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
+                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
                                         </button>
                                     )
                                 })}
                             </div>
 
                             {/* Edit Controls Bar */}
-                            <div className="px-6 py-3 flex justify-between items-center bg-white/5 backdrop-blur-md border-t border-white/5">
+                            <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/50 backdrop-blur-md border-t border-zinc-200">
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={handleOptimize}

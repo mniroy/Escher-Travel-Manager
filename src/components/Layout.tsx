@@ -9,13 +9,13 @@ interface LayoutProps {
 
 export function Layout({ children, showNav = true }: LayoutProps) {
     return (
-        <div className="min-h-screen pb-24 relative overflow-hidden bg-black">
+        <div className="min-h-screen pb-24 relative overflow-hidden bg-zinc-50">
             {/* Sync Status Indicator */}
             <div className="absolute top-4 right-4 z-50">
                 <SyncIndicator />
             </div>
 
-            <main className="relative z-10 w-full md:max-w-5xl mx-auto min-h-screen shadow-2xl bg-black shadow-zinc-900/20">
+            <main className="relative z-10 w-full md:max-w-5xl mx-auto min-h-screen shadow-2xl bg-zinc-50 shadow-zinc-200">
                 {children}
             </main>
 

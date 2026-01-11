@@ -136,28 +136,25 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                         </div>
                     </div>
                 ) : (
-                    // Standard Card Implementation with Two-Tone Option
+                    // Standard Card Implementation (Skipped Items Only)
                     isSkipped ? (
                         <div
                             onClick={onClick}
-                            className={`p-6 rounded-[1.75rem] relative group/card cursor-pointer flex flex-col gap-3 ${cardStyle}`}
+                            className={`p-6 rounded-[1.75rem] relative group/card cursor-pointer flex flex-col gap-3 
+                                bg-zinc-100 border border-zinc-200 opacity-60 grayscale hover:opacity-80 transition-all`}
                         >
-                            {/* Single Block Content (Checked In / Skipped) */}
+                            {/* Single Block Content (Skipped) */}
                             {/* Header */}
                             <div className="flex justify-between items-start">
-                                <span className={`text-sm font-bold ${isCheckedIn ? 'text-[#007AFF]' : 'text-zinc-500 group-hover/card:text-[#007AFF] transition-colors'}`}>
+                                <span className="text-sm font-bold text-zinc-400">
                                     {event.time}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    {isCheckedIn && <span className="text-[10px] text-white bg-[#007AFF] px-2.5 py-1 rounded-full font-bold shadow-sm">Checked In</span>}
-                                    {isSkipped && <span className="text-[10px] text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded-full font-bold border border-zinc-800">Skipped</span>}
-                                    {event.status && !isSkipped && !isCheckedIn && event.status !== 'Scheduled' && (
-                                        <span className="text-[10px] text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-full font-bold border border-zinc-800">{event.status}</span>
-                                    )}
+                                    <span className="text-[10px] text-zinc-500 bg-zinc-200 px-2 py-0.5 rounded-full font-bold border border-zinc-300">Skipped</span>
                                 </div>
                             </div>
                             <div>
-                                <h3 className={`text-xl font-bold text-white mb-1.5 leading-tight ${isSkipped ? 'line-through decoration-zinc-600 text-zinc-600' : ''}`}>{event.title}</h3>
+                                <h3 className="text-xl font-bold text-zinc-500 mb-1.5 leading-tight line-through decoration-zinc-400">{event.title}</h3>
                                 {event.description && <p className="text-sm text-zinc-400 mb-2 leading-relaxed font-medium">{event.description}</p>}
                             </div>
                             {/* Metadata */}
@@ -186,14 +183,13 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                         Checked In at {event.time}
                                     </div>
                                 )}
-                                {isSkipped && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
-                                        className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-500 hover:bg-zinc-700 transition-all text-xs font-bold w-full shadow-sm"
-                                    >
-                                        <Undo2 size={15} />
-                                        Restore Activity
-                                    </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
+                                    className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-all text-xs font-bold w-full shadow-sm"
+                                >
+                                    <Undo2 size={15} />
+                                    Restore Activity
+                                </button>
                                 )}
                             </div>
                         </div>
