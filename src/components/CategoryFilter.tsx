@@ -24,15 +24,15 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
                     key={cat.id}
                     onClick={() => onSelect(cat.id)}
                     className={`
-                        flex items-center gap-2 px-5 py-2.5 rounded-full whitespace-nowrap transition-all border
+                        flex items-center gap-1.5 px-4 py-2 rounded-full whitespace-nowrap transition-all border
                         ${selected === cat.id
-                            ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-lg shadow-blue-500/40 transform scale-105'
+                            ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 transform scale-105'
                             : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 hover:text-white'
                         }
                     `}
                 >
-                    {cat.icon}
-                    <span className="text-sm font-bold">{cat.label}</span>
+                    {React.cloneElement(cat.icon as React.ReactElement, { size: 14 })}
+                    <span className="text-xs font-bold">{cat.label}</span>
                 </button>
             ))}
         </div>

@@ -309,8 +309,8 @@ export default function ItineraryPage() {
 
                 <div className="relative z-10 flex justify-between items-end">
                     <div>
-                        <h1 className="text-4xl font-extrabold text-white mb-2 leading-tight drop-shadow-md">{tripName}</h1>
-                        <div className="flex items-center text-white/80 text-sm gap-2 font-medium drop-shadow-sm">
+                        <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
+                        <div className="flex items-center text-white/80 text-xs gap-2 font-medium drop-shadow-sm">
                             <span>{getFormattedDateRange()}</span>
                         </div>
                     </div>
@@ -318,9 +318,9 @@ export default function ItineraryPage() {
                     {/* Settings Button (Replaces Avatar) */}
                     <button
                         onClick={() => setIsSettingsOpen(true)}
-                        className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-lg hover:bg-white/20 active:scale-95 transition-all"
+                        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-md hover:bg-white/20 active:scale-95 transition-all"
                     >
-                        <Settings size={22} strokeWidth={2} />
+                        <Settings size={18} strokeWidth={2} />
                     </button>
                 </div>
             </header>
@@ -340,14 +340,14 @@ export default function ItineraryPage() {
                                 key={i}
                                 onClick={() => toggleDate(dateObj.offset)}
                                 className={`
-                                    flex flex-col items-center justify-center min-w-[4.5rem] h-[5.5rem] rounded-[2rem] transition-all duration-300 border
+                                    flex flex-col items-center justify-center min-w-[3.5rem] h-[4.5rem] rounded-2xl transition-all duration-300 border
                                     ${isSelected
-                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-lg shadow-blue-500/40 scale-105 z-10'
+                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
                                         : 'bg-zinc-900 text-zinc-500 border-zinc-800 shadow-sm hover:bg-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}
                                 `}
                             >
-                                <span className={`text-xl leading-none mb-1 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
+                                <span className={`text-lg leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-300'}`}>{dateObj.dateNum}</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-600'}`}>{dateObj.dayName}</span>
                             </button>
                         )
                     })}
@@ -360,26 +360,26 @@ export default function ItineraryPage() {
                             onClick={handleOptimize}
                             disabled={isOptimizing}
                             className={`
-                                h-9 px-4 rounded-full flex items-center gap-2 text-xs font-bold transition-all
+                                h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
                                 ${isOptimizing
                                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
-                                    : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
+                                    : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
                                 }
                             `}
                         >
-                            <Sparkles size={12} className={isOptimizing ? 'animate-spin' : ''} />
+                            <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
                             {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
                         </button>
 
                         <button
                             onClick={() => setIsEditing(!isEditing)}
-                            className={`h-9 px-4 rounded-full border flex items-center gap-2 text-xs font-bold transition-all
+                            className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
                                 ${isEditing
                                     ? 'bg-white text-black border-white'
                                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
                             `}
                         >
-                            {isEditing ? <Check size={14} /> : <Pencil size={12} />}
+                            {isEditing ? <Check size={12} /> : <Pencil size={10} />}
                             {isEditing ? 'Done' : 'Edit'}
                         </button>
                     </div>
