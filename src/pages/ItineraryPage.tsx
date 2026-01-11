@@ -294,18 +294,22 @@ export default function ItineraryPage() {
             {/* Header Area */}
             <header className="relative z-10 min-h-[280px] flex flex-col justify-end p-6 overflow-hidden">
                 {/* Background Image */}
-                <div className="absolute inset-0 z-0">
-                    <img
-                        src="/src/assets/bali-header.jpg"
-                        alt="Bali Landscape"
-                        className="w-full h-full object-cover"
-                    />
+                <div className="absolute inset-0 z-0 bg-zinc-900">
+                    {events.find(e => e.image)?.image ? (
+                        <img
+                            src={events.find(e => e.image)?.image}
+                            alt="Trip Header"
+                            className="w-full h-full object-cover animate-in fade-in duration-700"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                            <h3 className="text-zinc-700 font-bold text-xl tracking-[0.2em] animate-pulse">waiting for your plan...</h3>
+                        </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />
                     {/* Seamless Blend to Dark Content */}
                     <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-t from-black via-black/60 to-transparent" />
                 </div>
-
-
 
                 <div className="relative z-10 flex justify-between items-end">
                     <div>
@@ -332,7 +336,7 @@ export default function ItineraryPage() {
                 </div>
 
                 {/* Date Selector */}
-                <div className="flex gap-3 overflow-x-auto no-scrollbar px-6 py-4 pb-5">
+                <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
                     {tripDates.map((dateObj, i) => {
                         const isSelected = selectedDayOffsets.includes(dateObj.offset);
                         return (
