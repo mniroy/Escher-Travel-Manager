@@ -6,7 +6,7 @@ import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
 import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent } from 'framer-motion';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -291,6 +291,20 @@ export default function ItineraryPage() {
         }, 8000);
         return () => clearInterval(interval);
     }, [validImages.length]);
+
+    // Scroll-based Collapse Logic
+    const [hasCollapsedOnScroll, setHasCollapsedOnScroll] = useState(false);
+    useMotionValueEvent(scrollY, "change", (latest) => {
+        const threshold = 100; // Pixel threshold to trigger collapse
+        if (latest > threshold && !hasCollapsedOnScroll && isControlsExpanded) {
+            setIsControlsExpanded(false);
+            setHasCollapsedOnScroll(true);
+        } else if (latest < threshold && hasCollapsedOnScroll) {
+            // Reset the lock when back at top, but don't force expand (user choice)
+            // or we could optional: setIsControlsExpanded(true); if we want auto-expand at top
+            setHasCollapsedOnScroll(false);
+        }
+    });
 
     return (
         <Layout>
