@@ -18,6 +18,19 @@ export interface TimelineEvent {
     travelTime?: string;
     travelMode?: 'drive' | 'walk' | 'transit';
     dayOffset?: number;
+    // Google Places data
+    photos?: string[];
+    openingHours?: string[];
+    isOpen?: boolean;
+    userReviews?: {
+        name: string;
+        rating: number;
+        text: { text: string };
+        authorAttribution: { displayName: string; photoUri?: string };
+        relativePublishTimeDescription: string;
+    }[];
+    placeId?: string;
+    address?: string;
 }
 
 interface TimelineItemProps {

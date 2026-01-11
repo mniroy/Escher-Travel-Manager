@@ -1,13 +1,22 @@
 import { Layout } from '../components/Layout';
-import { Car, Locate } from 'lucide-react';
+import { Car, Locate, MapPin } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState } from 'react';
 
 export default function MapPage() {
-    const { tripDates } = useTrip();
+    const { tripDates, events } = useTrip();
     const [selectedDayOffset, setSelectedDayOffset] = useState(0);
 
     const selectedDate = tripDates.find(d => d.offset === selectedDayOffset) || tripDates[0];
+
+    // Filter events for the selected day and sort by time
+    const dayEvents = events
+        .filter(e => e.dayOffset === selectedDayOffset)
+        .sort((a, b) => {
+            const timeA = parseTime(a.time);
+            const timeB = parseTime(b.time);
+            return timeA - timeB;
+        });
 
     return (
         <Layout>
@@ -30,21 +39,39 @@ export default function MapPage() {
                     <div className="flex justify-between items-start mb-5">
                         <div>
                             <h3 className="text-white font-bold text-lg">Smart Route</h3>
-                            <p className="text-sm text-zinc-400">Optimized for {selectedDate?.fullDate} • 4 stops</p>
+                            <p className="text-sm text-zinc-400">
+                                Optimized for {selectedDate?.fullDate} • {dayEvents.length} stops
+                            </p>
                         </div>
                         <button className="w-12 h-12 rounded-full bg-[#007AFF] flex items-center justify-center text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all">
                             <Locate size={22} />
                         </button>
                     </div>
 
-                    <div className="space-y-0 relative">
+                    <div className="space-y-0 relative max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
                         {/* Connecting Line */}
-                        <div className="absolute top-4 bottom-4 left-[15px] w-[2px] bg-zinc-800" />
+                        {dayEvents.length > 1 && (
+                            <div className="absolute top-4 bottom-4 left-[15px] w-[2px] bg-zinc-800" />
+                        )}
 
-                        <RouteStop title="Zurich Airport" time="3:00 PM" active first />
-                        <RouteStop title="Elfrentes Roasting" time="4:15 PM" />
-                        <RouteStop title="Old Town Walk" time="5:30 PM" />
-                        <RouteStop title="Elmira Dining" time="7:00 PM" last />
+                        {dayEvents.length > 0 ? (
+                            dayEvents.map((event, index) => (
+                                <RouteStop
+                                    key={event.id}
+                                    title={event.title}
+                                    time={event.time}
+                                    // Highlight the "next" event or just the first one for now
+                                    active={index === 0}
+                                    last={index === dayEvents.length - 1}
+                                    type={event.type}
+                                />
+                            ))
+                        ) : (
+                            <div className="text-center py-8 text-zinc-500">
+                                <MapPin className="mx-auto mb-2 opacity-50" size={24} />
+                                <p className="text-sm">No activities planned for this day.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -74,7 +101,7 @@ export default function MapPage() {
     );
 }
 
-function RouteStop({ title, time, active, first: _first, last }: { title: string; time: string; active?: boolean; first?: boolean; last?: boolean }) {
+function RouteStop({ title, time, active, last, type }: { title: string; time: string; active?: boolean; last?: boolean; type?: string }) {
     return (
         <div className={`flex items-center gap-4 relative z-10 ${!last ? 'pb-6' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors 
@@ -87,8 +114,28 @@ function RouteStop({ title, time, active, first: _first, last }: { title: string
             </div>
             <div>
                 <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-zinc-500'}`}>{title}</p>
-                <p className="text-xs text-zinc-600">{time}</p>
+                <div className="flex items-center gap-2">
+                    <p className="text-xs text-zinc-600">{time}</p>
+                    {type && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700">{type}</span>}
+                </div>
             </div>
         </div>
     )
 }
+
+// Helper to parse "9:00 AM" into minutes for sorting
+function parseTime(timeStr: string): number {
+    if (!timeStr || timeStr === 'TBD') return 9999; // Put undefined times at the end
+    try {
+        const [time, period] = timeStr.split(' ');
+        if (!time || !period) return 9999;
+
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+    } catch {
+        return 9999;
+    }
+}
+
