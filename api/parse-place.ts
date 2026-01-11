@@ -100,7 +100,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const placeInfo = extractPlaceInfo(url);
+        let expandedUrl = url;
+
+        // Handle short URLs (maps.app.goo.gl, goo.gl/maps) by following redirects
+        if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
+            try {
+                // Follow redirects to get the full URL
+                const response = await fetch(url, {
+                    method: 'HEAD',
+                    redirect: 'follow'
+                });
+                expandedUrl = response.url;
+                console.log('Expanded short URL:', url, '->', expandedUrl);
+            } catch (e) {
+                console.log('Could not expand short URL, using original:', e);
+            }
+        }
+
+        const placeInfo = extractPlaceInfo(expandedUrl);
         let placeId = placeInfo.placeId;
 
         // If we don't have a place ID, try to find it via text search
