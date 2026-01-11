@@ -440,18 +440,16 @@ export default function ItineraryPage() {
                         ))
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
-                            <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
-                                <MapPin size={24} className="opacity-50 text-zinc-400" />
+                            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
+                                <MapPin size={24} className="opacity-50 text-zinc-500" />
                             </div>
-                            <p className="font-medium text-zinc-500">No plans yet.</p>
-                            {isEditing && (
-                                <button
-                                    onClick={() => openModalAt(0)}
-                                    className="mt-4 px-6 py-2 bg-zinc-100 text-zinc-900 rounded-full text-sm font-bold hover:bg-zinc-200 transition-colors"
-                                >
-                                    + Add First Activity
-                                </button>
-                            )}
+                            <button
+                                onClick={() => openModalAt(0)}
+                                className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                <Plus size={16} strokeWidth={3} />
+                                Add First Activity
+                            </button>
                         </div>
                     )}
 
