@@ -1,41 +1,8 @@
 {
-    "version": 2,
-    "builds": [
+    "rewrites": [
         {
-            "src": "api/**/*.ts",
-            "use": "@vercel/node"
-        },
-        {
-            "src": "package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/sw.js",
-            "headers": {
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Service-Worker-Allowed": "/"
-            },
-            "dest": "/dist/sw.js"
-        },
-        {
-            "src": "/manifest.webmanifest",
-            "headers": {
-                "Content-Type": "application/manifest+json"
-            },
-            "dest": "/dist/manifest.webmanifest"
-        },
-        {
-            "src": "/api/(.*)",
-            "dest": "/api/$1"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/dist/$1"
+            "source": "/((?!api/).*)",
+            "destination": "/index.html"
         }
     ]
 }

@@ -1,7 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Google Places API (New) - Parse Place from URL
+// Edge Function for better Vercel detection
 
-// Google Places API (New) - Parse Place from URL and get details
-// Uses Text Search API to find place from URL, then fetches details
+export const config = {
+    runtime: 'edge',
+};
 
 // Extract place info from Google Maps URL
 function extractFromUrl(url: string): { query?: string; placeId?: string; coords?: { lat: number; lng: number } } {
@@ -26,7 +28,6 @@ function extractFromUrl(url: string): { query?: string; placeId?: string; coords
         // Extract place ID from data parameter
         const placeIdMatch = url.match(/!1s(0x[a-f0-9]+:0x[a-f0-9]+|ChIJ[A-Za-z0-9_-]+)/i);
         if (placeIdMatch) {
-            // Convert hex format to proper format if needed
             result.placeId = placeIdMatch[1];
         }
 
@@ -43,32 +44,54 @@ function extractFromUrl(url: string): { query?: string; placeId?: string; coords
     return result;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
+export default async function handler(request: Request) {
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+        return new Response(null, {
+            status: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+            },
+        });
     }
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+    if (request.method !== 'POST') {
+        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json' },
+        });
     }
 
-    const { url } = req.body;
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
+    const { url } = body;
 
     if (!url || typeof url !== 'string') {
-        return res.status(400).json({ error: 'Google Maps URL is required' });
+        return new Response(JSON.stringify({ error: 'Google Maps URL is required' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+        });
     }
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({
+        return new Response(JSON.stringify({
             error: 'Google Places API key not configured',
             hint: 'Set GOOGLE_PLACES_API_KEY in Vercel environment variables'
+        }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
         });
     }
 
@@ -91,21 +114,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const extracted = extractFromUrl(expandedUrl);
 
         if (!extracted.query && !extracted.placeId) {
-            return res.status(400).json({
+            return new Response(JSON.stringify({
                 error: 'Could not extract place info from URL',
                 hint: 'Please use a full Google Maps URL, not a shortened link'
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
         }
 
-        let placeId = extracted.placeId;
-
-        // If we have a query but no placeId, use Text Search to find it
-        if (!placeId && extracted.query) {
+        // If we have a query, use Text Search to find place details
+        if (extracted.query) {
             const searchBody: Record<string, unknown> = {
                 textQuery: extracted.query
             };
 
-            // Add location bias if we have coordinates
             if (extracted.coords) {
                 searchBody.locationBias = {
                     circle: {
@@ -123,98 +146,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': apiKey,
-                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri'
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri,places.reviews'
                 },
                 body: JSON.stringify(searchBody)
             });
 
-            if (!searchResponse.ok) {
-                const errorText = await searchResponse.text();
-                console.error('Text search failed:', searchResponse.status, errorText);
+            if (searchResponse.ok) {
+                const searchData = await searchResponse.json();
 
-                // Fallback: return extracted data
-                return res.status(200).json({
-                    name: extracted.query,
-                    address: extracted.coords ? `${extracted.coords.lat}, ${extracted.coords.lng}` : 'Location',
-                    googleMapsUrl: url,
-                    source: 'url_parsing'
-                });
-            }
+                if (searchData.places && searchData.places.length > 0) {
+                    const place = searchData.places[0];
 
-            const searchData = await searchResponse.json();
+                    // Build photo URLs
+                    const photoUrls = place.photos?.slice(0, 5).map((photo: { name: string }) =>
+                        `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=800&key=${apiKey}`
+                    ) || [];
 
-            if (searchData.places && searchData.places.length > 0) {
-                const place = searchData.places[0];
+                    const result = {
+                        name: place.displayName?.text || extracted.query,
+                        address: place.formattedAddress || '',
+                        rating: place.rating,
+                        reviewCount: place.userRatingCount,
+                        placeId: place.id,
+                        types: place.types,
+                        photos: photoUrls,
+                        openingHours: place.regularOpeningHours?.weekdayDescriptions,
+                        isOpen: place.regularOpeningHours?.openNow,
+                        googleMapsUrl: place.googleMapsUri || url,
+                        reviews: place.reviews?.slice(0, 3),
+                        source: 'google_places'
+                    };
 
-                // Build photo URLs
-                const photoUrls = place.photos?.slice(0, 5).map((photo: { name: string }) =>
-                    `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=800&key=${apiKey}`
-                ) || [];
-
-                return res.status(200).json({
-                    name: place.displayName?.text || extracted.query,
-                    address: place.formattedAddress || '',
-                    rating: place.rating,
-                    reviewCount: place.userRatingCount,
-                    placeId: place.id,
-                    types: place.types,
-                    photos: photoUrls,
-                    openingHours: place.regularOpeningHours?.weekdayDescriptions,
-                    isOpen: place.regularOpeningHours?.openNow,
-                    googleMapsUrl: place.googleMapsUri || url,
-                    source: 'google_places'
-                });
-            }
-        }
-
-        // If we have a placeId, fetch details directly
-        if (placeId) {
-            const detailsResponse = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Goog-Api-Key': apiKey,
-                    'X-Goog-FieldMask': 'id,displayName,formattedAddress,rating,userRatingCount,types,photos,regularOpeningHours,googleMapsUri,reviews'
+                    return new Response(JSON.stringify(result), {
+                        status: 200,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                    });
                 }
-            });
-
-            if (detailsResponse.ok) {
-                const place = await detailsResponse.json();
-
-                const photoUrls = place.photos?.slice(0, 5).map((photo: { name: string }) =>
-                    `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=800&key=${apiKey}`
-                ) || [];
-
-                return res.status(200).json({
-                    name: place.displayName?.text || extracted.query || 'Unknown Place',
-                    address: place.formattedAddress || '',
-                    rating: place.rating,
-                    reviewCount: place.userRatingCount,
-                    placeId: place.id || placeId,
-                    types: place.types,
-                    photos: photoUrls,
-                    openingHours: place.regularOpeningHours?.weekdayDescriptions,
-                    isOpen: place.regularOpeningHours?.openNow,
-                    googleMapsUrl: place.googleMapsUri || url,
-                    reviews: place.reviews,
-                    source: 'google_places'
-                });
             }
         }
 
         // Fallback: return extracted data
-        return res.status(200).json({
+        return new Response(JSON.stringify({
             name: extracted.query || 'Unknown Place',
             address: extracted.coords ? `${extracted.coords.lat}, ${extracted.coords.lng}` : 'See Google Maps',
             googleMapsUrl: url,
             source: 'url_parsing'
+        }), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
         });
 
     } catch (error) {
         console.error('Parse place error:', error);
-        return res.status(500).json({
+        return new Response(JSON.stringify({
             error: 'Failed to parse place',
             message: error instanceof Error ? error.message : 'Unknown error'
+        }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
         });
     }
 }
