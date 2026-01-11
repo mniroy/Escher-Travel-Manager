@@ -47,9 +47,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
     const isSkipped = event.status === 'Skipped';
     const isCheckedIn = event.status === 'Checked In';
 
-    const cardStyle = isSkipped ? 'bg-zinc-900/30 opacity-60 grayscale border-zinc-800' :
-        isCheckedIn ? 'bg-blue-500/10 border-blue-500/30' :
-            'shadow-lg'; // We'll handle backgrounds inside for default two-tone
+
 
 
 
@@ -177,12 +175,6 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                             )}
                             {/* Actions Footer - Simple for these states */}
                             <div className="grid gap-2.5 mt-2">
-                                {isCheckedIn && (
-                                    <div className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20 text-xs font-bold cursor-default">
-                                        <CheckCircle2 size={15} />
-                                        Checked In at {event.time}
-                                    </div>
-                                )}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
                                     className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-all text-xs font-bold w-full shadow-sm"
@@ -190,7 +182,6 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                     <Undo2 size={15} />
                                     Restore Activity
                                 </button>
-                                )}
                             </div>
                         </div>
 
