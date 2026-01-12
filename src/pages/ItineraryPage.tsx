@@ -8,7 +8,6 @@ import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles,
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent } from 'framer-motion';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
-import { format, addDays } from 'date-fns';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -255,9 +254,40 @@ export default function ItineraryPage() {
         }
     };
 
-    const openModalAt = (index: number) => {
+    const handleSelectFromLibrary = (place: TimelineEvent, durationMins: number) => {
+        const targetDay = selectedDayOffsets[0] || 0;
+        const newEvent: TimelineEvent = {
+            ...place,
+            id: crypto.randomUUID(), // New ID for the instance
+            status: 'Scheduled',
+            dayOffset: targetDay,
+            duration: durationMins < 60 ? `${durationMins}m` : `${Math.floor(durationMins / 60)}h${durationMins % 60 ? ` ${durationMins % 60}m` : ''}`,
+            time: '09:00 AM' // Default time, logic can be smarter
+        };
+
+        setEvents(prev => {
+            if (insertIndex !== null) {
+                const currentDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetDay);
+                const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetDay);
+                const newDayList = [...currentDayEvents];
+                newDayList.splice(insertIndex, 0, newEvent);
+                return [...otherEvents, ...newDayList];
+            }
+            return [...prev, newEvent];
+        });
+
+        setIsSelectorOpen(false);
+        setInsertIndex(null);
+    };
+
+    const openSelectorAt = (index: number) => {
         setInsertIndex(index);
-        setEditingEvent(null); // Ensure we are not in edit mode
+        setIsSelectorOpen(true);
+    };
+
+    const openAddModal = () => {
+        setIsSelectorOpen(false); // Close selector
+        setEditingEvent(null);
         setIsModalOpen(true);
     };
 
@@ -272,6 +302,9 @@ export default function ItineraryPage() {
         const matchesDate = selectedDayOffsets.includes(e.dayOffset ?? 0);
         return matchesCategory && matchesDate;
     });
+
+    // Filter "Saved" places for the selector library
+    const savedPlaces = events.filter(e => e.status === 'Saved' || e.dayOffset === -1);
 
     const getFormattedDateRange = () => {
         if (tripDates.length === 0) return '';
@@ -334,6 +367,14 @@ export default function ItineraryPage() {
                 onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
                 onSave={handleAddActivity}
                 initialData={editingEvent}
+            />
+
+            <PlaceSelectorModal
+                isOpen={isSelectorOpen}
+                onClose={() => setIsSelectorOpen(false)}
+                savedPlaces={savedPlaces}
+                onSelectPlace={handleSelectFromLibrary}
+                onAddNew={openAddModal}
             />
 
             {/* Header Area */}

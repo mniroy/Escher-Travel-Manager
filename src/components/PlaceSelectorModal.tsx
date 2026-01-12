@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X, Search, Clock, Plus, Minus, MapPin, ArrowRight } from 'lucide-react';
+import { X, Search, Plus, Minus, MapPin } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface PlaceSelectorModalProps {
     isOpen: boolean;
