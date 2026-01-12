@@ -36,40 +36,52 @@ export interface TimelineEvent {
 interface TimelineItemProps {
     event: TimelineEvent;
     isLast?: boolean;
+    isFirst?: boolean;
     icon: ReactNode;
     onClick?: () => void;
     onCheckIn?: (id: string) => void;
     onSkip?: (id: string) => void;
+    // isFirst?: boolean; // Removed duplicate
+    isCompact?: boolean;
 }
 
-export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip }: TimelineItemProps) {
     const hasTravelTime = !!event.travelTime;
     const isSkipped = event.status === 'Skipped';
     const isCheckedIn = event.status === 'Checked In';
-
+    const showStartBadge = isFirst;
 
 
 
 
     return (
-        <div className={`flex gap-4 relative group ${hasTravelTime ? 'mt-16' : ''}`}>
+        <div className={`flex gap-4 relative group ${(hasTravelTime || showStartBadge) ? 'mt-16' : ''}`}>
 
             {/* Timeline Connector */}
             <div className="flex flex-col items-center">
                 {/* Connector Line Extension */}
-                {hasTravelTime && (
+                {(hasTravelTime || showStartBadge) && (
                     <div className="absolute -top-16 h-16 w-[2px] bg-blue-200 left-1/2 -translate-x-1/2" />
                 )}
 
-                {/* Travel Time Badge */}
-                {hasTravelTime && (
+                {/* Top Badge: Travel Time OR Start Label */}
+                {(hasTravelTime || showStartBadge) && (
                     <div className={`absolute -top-16 h-16 left-1/2 -translate-x-1/2 flex items-center justify-center z-10 ${isSkipped ? 'opacity-30' : ''}`}>
-                        <div className="bg-zinc-100 border border-zinc-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide flex items-center gap-1.5">
-                                {event.travelMode === 'walk' ? <Footprints size={10} className="text-zinc-500" /> : <Car size={10} className="text-zinc-500" />}
-                                {event.travelTime}
-                            </span>
-                        </div>
+                        {showStartBadge ? (
+                            <div className="bg-white border border-blue-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap z-20">
+                                <span className="text-[10px] text-[#007AFF] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#007AFF]" />
+                                    Start
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="bg-zinc-100 border border-zinc-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                    {event.travelMode === 'walk' ? <Footprints size={10} className="text-zinc-500" /> : <Car size={10} className="text-zinc-500" />}
+                                    {event.travelTime}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -134,7 +146,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                         </div>
                     </div>
                 ) : (
-                    // Standard Card Implementation (Skipped Items Only)
+                    // Logic flow: isSkipped -> compact -> standard
                     isSkipped ? (
                         <div
                             onClick={onClick}
@@ -155,6 +167,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                 <h3 className="text-xl font-bold text-zinc-500 mb-1.5 leading-tight line-through decoration-zinc-400">{event.title}</h3>
                                 {event.description && <p className="text-sm text-zinc-400 mb-2 leading-relaxed font-medium">{event.description}</p>}
                             </div>
+
                             {/* Metadata */}
                             {(event.duration || event.rating) && (
                                 <div className="flex items-center gap-4 text-xs text-zinc-500 font-bold">
@@ -184,96 +197,112 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                 </button>
                             </div>
                         </div>
-
                     ) : (
-                        // Two-Tone Design (Reference: Flight Card)
-                        <div className="rounded-[1.75rem] overflow-hidden shadow-2xl shadow-blue-900/20 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
-                            {/* Top Section: Dark Navy or Image */}
-                            <div className="p-6 pb-6 relative overflow-hidden h-full min-h-[160px] flex flex-col justify-between">
-                                {/* Background Image */}
-                                {event.image && (
-                                    <>
-                                        <div className="absolute inset-0 z-0">
-                                            <img
-                                                src={event.image}
-                                                alt={event.title}
-                                                className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-[#0B1221]/90 via-[#0B1221]/50 to-[#0B1221]/30" />
-                                        </div>
-                                    </>
-                                )}
+                        isCompact ? (
+                            // Compact Edit Mode
+                            <div
+                                onClick={onClick}
+                                className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-300 transition-all"
+                            >
+                                <span className="text-xs font-bold text-zinc-500 whitespace-nowrap min-w-[3rem] text-center bg-zinc-100 px-2 py-1 rounded-md">{event.time}</span>
+                                <div className="flex-grow min-w-0">
+                                    <h3 className="text-sm font-bold text-zinc-900 truncate">{event.title}</h3>
+                                    {event.duration && <p className="text-[10px] text-zinc-400 font-medium flex items-center gap-1"><Clock size={10} /> {event.duration}</p>}
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400">
+                                    <div className="scale-75">{icon}</div>
+                                </div>
+                            </div>
+                        ) : (
+                            // Standard Expanded Card
+                            <div className="rounded-[1.75rem] overflow-hidden shadow-2xl shadow-blue-900/20 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
+                                {/* Top Section: Dark Navy or Image */}
+                                <div className="p-6 pb-6 relative overflow-hidden h-full min-h-[160px] flex flex-col justify-between">
+                                    {/* (Normal Card Content) */}
+                                    {event.image && (
+                                        <>
+                                            <div className="absolute inset-0 z-0">
+                                                <img
+                                                    src={event.image}
+                                                    alt={event.title}
+                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-[#0B1221]/90 via-[#0B1221]/50 to-[#0B1221]/30" />
+                                            </div>
+                                        </>
+                                    )}
 
-                                <div className="relative z-10">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-[#0B1221]/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
-                                        {event.status && event.status !== 'Scheduled' && (
-                                            <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-[#0B1221]/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
+                                            {event.status && event.status !== 'Scheduled' && (
+                                                <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
+                                            )}
+                                        </div>
+
+                                        <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
+                                        {event.description && <p className="text-sm text-slate-200/80 mb-4 leading-relaxed font-medium line-clamp-2 drop-shadow-sm">{event.description}</p>}
+
+                                        {(event.duration || event.rating) && (
+                                            <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
+                                                {event.rating && (
+                                                    <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
+                                                        <Star size={14} fill="currentColor" />
+                                                        <span className="text-slate-100">{event.rating}</span>
+                                                        <span className="text-slate-400 font-medium">({event.reviews})</span>
+                                                    </div>
+                                                )}
+                                                {event.duration && (
+                                                    <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
+                                                        <Clock size={13} className="text-[#007AFF]" />
+                                                        <span>{event.duration}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
-
-                                    <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
-                                    {event.description && <p className="text-sm text-slate-200/80 mb-4 leading-relaxed font-medium line-clamp-2 drop-shadow-sm">{event.description}</p>}
-
-                                    {(event.duration || event.rating) && (
-                                        <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
-                                            {event.rating && (
-                                                <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
-                                                    <Star size={14} fill="currentColor" />
-                                                    <span className="text-slate-100">{event.rating}</span>
-                                                    <span className="text-slate-400 font-medium">({event.reviews})</span>
-                                                </div>
-                                            )}
-                                            {event.duration && (
-                                                <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
-                                                    <Clock size={13} className="text-[#007AFF]" />
-                                                    <span>{event.duration}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
 
-                            {/* Bottom Section: Bright Blue */}
-                            <div className="bg-[#007AFF] p-4 relative">
-                                {/* Decorative Cutouts */}
-                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-zinc-50 rounded-full" />
-                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-zinc-50 rounded-full" />
+                                {/* Bottom Section: Bright Blue */}
+                                <div className="bg-[#007AFF] p-4 relative">
+                                    {/* Decorative Cutouts */}
+                                    <div className="absolute -top-3 -left-3 w-6 h-6 bg-zinc-50 rounded-full" />
+                                    <div className="absolute -top-3 -right-3 w-6 h-6 bg-zinc-50 rounded-full" />
 
-                                <div className="grid gap-2.5">
-                                    <Link to={`/place/${event.id}`}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="flex items-center justify-between bg-white text-[#007AFF] text-xs font-bold py-3 px-5 rounded-xl transition-all hover:bg-white/90 hover:scale-[1.01] shadow-sm w-full"
-                                    >
-                                        <span>View Details</span>
-                                        <ArrowRight size={14} className="opacity-70" />
-                                    </Link>
+                                    <div className="grid gap-2.5">
+                                        <Link to={`/place/${event.id}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex items-center justify-between bg-white text-[#007AFF] text-xs font-bold py-3 px-5 rounded-xl transition-all hover:bg-white/90 hover:scale-[1.01] shadow-sm w-full"
+                                        >
+                                            <span>View Details</span>
+                                            <ArrowRight size={14} className="opacity-70" />
+                                        </Link>
 
-                                    <div className="grid grid-cols-2 gap-2.5">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onCheckIn?.(event.id); }}
-                                            className={`
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onCheckIn?.(event.id); }}
+                                                className={`
                                                 flex items-center justify-center gap-2 py-3 px-3 rounded-xl transition-all text-xs font-bold border
                                                 ${isCheckedIn
-                                                    ? 'bg-white text-[#007AFF] border-white shadow-md'
-                                                    : 'bg-[#005EC2] text-white/90 border-white/10 hover:bg-[#0051A8] hover:text-white'}
+                                                        ? 'bg-white text-[#007AFF] border-white shadow-md'
+                                                        : 'bg-[#005EC2] text-white/90 border-white/10 hover:bg-[#0051A8] hover:text-white'}
                                             `}
-                                        >
-                                            <CheckCircle2 size={15} className={isCheckedIn ? 'fill-[#007AFF] text-white' : ''} />
-                                            {isCheckedIn ? 'Checked In' : 'Check In'}
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
-                                            className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#005EC2] text-blue-200 border border-white/10 hover:bg-[#0051A8] hover:text-white transition-all text-xs font-bold"
-                                        >
-                                            <XCircle size={15} />
-                                            Skip
-                                        </button>
+                                            >
+                                                <CheckCircle2 size={15} className={isCheckedIn ? 'fill-[#007AFF] text-white' : ''} />
+                                                {isCheckedIn ? 'Checked In' : 'Check In'}
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}
+                                                className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#005EC2] text-blue-200 border border-white/10 hover:bg-[#0051A8] hover:text-white transition-all text-xs font-bold"
+                                            >
+                                                <XCircle size={15} />
+                                                Skip
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )
                     )
                 )}
             </div>

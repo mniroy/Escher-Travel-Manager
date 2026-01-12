@@ -1,12 +1,13 @@
 import { Layout } from '../components/Layout';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
 import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent } from 'framer-motion';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -228,7 +229,7 @@ export default function ItineraryPage() {
         } else {
             // CREATE new event
             const newEvent: TimelineEvent = {
-                id: crypto.randomUUID(),
+                id: uuidv4(),
                 ...activityData,
                 dayOffset: targetOffset
             };
@@ -258,7 +259,7 @@ export default function ItineraryPage() {
         const targetDay = selectedDayOffsets[0] || 0;
         const newEvent: TimelineEvent = {
             ...place,
-            id: crypto.randomUUID(), // New ID for the instance
+            id: uuidv4(), // New ID for the instance
             status: 'Scheduled',
             dayOffset: targetDay,
             duration: durationMins < 60 ? `${durationMins}m` : `${Math.floor(durationMins / 60)}h${durationMins % 60 ? ` ${durationMins % 60}m` : ''}`,
@@ -303,8 +304,35 @@ export default function ItineraryPage() {
         return matchesCategory && matchesDate;
     });
 
-    // Filter "Saved" places for the selector library
-    const savedPlaces = events.filter(e => e.status === 'Saved' || e.dayOffset === -1);
+    // Filter "Saved" places AND all unique history for the selector library
+    // EXCLUDING places that are already added to the currently selected day
+    const savedPlaces = useMemo(() => {
+        const currentDay = selectedDayOffsets[0] || 0;
+
+        // 1. Identify what is ON the current day (to exclude)
+        const keysOnCurrentDay = new Set<string>();
+        events.forEach(e => {
+            if ((e.dayOffset ?? 0) === currentDay) {
+                const key = e.placeId || e.googleMapsLink || e.title;
+                if (key) keysOnCurrentDay.add(key);
+            }
+        });
+
+        // 2. Build the unique library
+        const unique = new Map();
+        events.forEach(e => {
+            // Deduplicate by placeId (strongest) or title/link
+            const key = e.placeId || e.googleMapsLink || e.title;
+
+            // Skip if it's already on the current day
+            if (key && keysOnCurrentDay.has(key)) return;
+
+            if (key && !unique.has(key)) {
+                unique.set(key, e);
+            }
+        });
+        return Array.from(unique.values());
+    }, [events, selectedDayOffsets]);
 
     const getFormattedDateRange = () => {
         if (tripDates.length === 0) return '';
@@ -318,9 +346,9 @@ export default function ItineraryPage() {
     const [bgIndex, setBgIndex] = useState(0);
 
     const { scrollY } = useScroll();
-    const springScrollY = useSpring(scrollY, { stiffness: 100, damping: 30, restDelta: 0.001 });
-    const bgY = useTransform(springScrollY, [0, 500], [0, 150]);
-    const bgOpacity = useTransform(springScrollY, [0, 300], [1, 0.3]);
+
+    const bgY = useTransform(scrollY, [0, 500], ['0%', '-15%']);
+    const bgOpacity = useTransform(scrollY, [0, 300], [1, 0.3]);
 
     useEffect(() => {
         if (validImages.length <= 1) return;
@@ -405,6 +433,7 @@ export default function ItineraryPage() {
                 </motion.div>
 
                 <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
 
                 <div className="relative z-10 flex justify-between items-end pb-8">
                     <div>
@@ -472,43 +501,45 @@ export default function ItineraryPage() {
                                     })}
                                 </div>
 
-                                {/* Edit Controls Bar */}
-                                <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/50 backdrop-blur-md border-t border-zinc-200">
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={handleOptimize}
-                                            disabled={isOptimizing}
-                                            className={`
-                                            h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
-                                            ${isOptimizing
-                                                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
-                                                    : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
-                                                }
-                                        `}
-                                        >
-                                            <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
-                                            {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
-                                        </button>
 
-                                        <button
-                                            onClick={() => setIsEditing(!isEditing)}
-                                            className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all
-                                            ${isEditing
-                                                    ? 'bg-white text-black border-white'
-                                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 shadow-sm'}
-                                        `}
-                                        >
-                                            {isEditing ? <Check size={12} /> : <Pencil size={10} />}
-                                            {isEditing ? 'Done' : 'Edit'}
-                                        </button>
-                                    </div>
-                                    <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
-                                        {filteredEvents.length} Items
-                                    </span>
-                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* Edit Controls Bar - Always Visible */}
+                    <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/95 backdrop-blur-xl border-t border-zinc-200">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleOptimize}
+                                disabled={isOptimizing}
+                                className={`
+                                h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
+                                ${isOptimizing
+                                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
+                                        : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
+                                    }
+                            `}
+                            >
+                                <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
+                                {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
+                            </button>
+
+                            <button
+                                onClick={() => setIsEditing(!isEditing)}
+                                className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all shadow-sm
+                                ${isEditing
+                                        ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
+                                        : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
+                            `}
+                            >
+                                {isEditing ? <Check size={12} /> : <Pencil size={10} />}
+                                {isEditing ? 'Done' : 'Edit'}
+                            </button>
+                        </div>
+                        <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
+                            {filteredEvents.length} Items
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -545,6 +576,8 @@ export default function ItineraryPage() {
                                     <TimelineItem
                                         event={event}
                                         isLast={index === filteredEvents.length - 1}
+                                        isFirst={index === 0}
+                                        isCompact={isEditing}
                                         icon={getIcon(event.type)}
                                         // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
                                         onCheckIn={handleCheckIn}

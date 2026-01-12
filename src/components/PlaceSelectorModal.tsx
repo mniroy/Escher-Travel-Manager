@@ -123,7 +123,7 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
 
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleSelect(place); }}
-                                    className="w-full mt-3 bg-[#007AFF] text-white py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 h-0 group-hover:h-auto overflow-hidden"
+                                    className="w-full mt-3 bg-[#007AFF] text-white py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
                                 >
                                     Add to Itinerary
                                 </button>

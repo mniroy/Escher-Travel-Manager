@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, MapPin, ArrowRight, Clock, Link as LinkIcon, Minus, Plus, Plane, Coffee, Bed, Ticket, AlertCircle } from 'lucide-react';
+import { X, Loader2, MapPin, ArrowRight, Clock, Link as LinkIcon, Minus, Plus, AlertCircle, Trees } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
 import { parseGoogleMapsUrl, placeTypeToEventType, isGoogleMapsUrl } from '../lib/googleMaps';
 
@@ -9,8 +9,9 @@ export type EventCategory = 'Transport' | 'Stay' | 'Eat' | 'Play';
 interface AddActivityModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (activity: NewActivity) => void;
+    onSave: (activity: NewActivity) => void | boolean;
     initialData?: TimelineEvent | null;
+    hideDuration?: boolean;
 }
 
 export interface NewActivity {
@@ -27,7 +28,7 @@ export interface NewActivity {
     placeId?: string; // Added placeId
 }
 
-export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddActivityModalProps) {
+export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDuration = false }: AddActivityModalProps) {
     const parseDurationToMinutes = (str?: string): number => {
         if (!str) return 60; // Default 1h
         let minutes = 0;
@@ -140,13 +141,17 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
     };
 
     const handleConfirm = () => {
-        onSave({
+        const result = onSave({
             ...formData,
             googleMapsLink: link,
             duration: formatMinutesToDuration(durationMinutes),
             placeId: formData.placeId // Ensure placeId is passed
         });
-        onClose();
+
+        // If onSave returns explicitly false, do not close the modal
+        if (result !== false) {
+            onClose();
+        }
     };
 
     const resetAndClose = () => {
@@ -163,14 +168,14 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={resetAndClose} />
 
-            <div className={`relative w-full max-w-lg bg-[#1e293b] rounded-2xl border border-white/10 shadow-2xl transition-all duration-300 overflow-hidden ${step === 'PREVIEW' ? 'scale-105' : 'scale-100'}`}>
+            <div className={`relative w-full max-w-lg bg-white rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden ${step === 'PREVIEW' ? 'scale-105' : 'scale-100'}`}>
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                            <Sparkles className="text-primary" size={20} />
-                            {step === 'INPUT' ? 'Add Activity' : (initialData ? 'Edit Details' : 'Confirm Details')}
+                        <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-900">
+                            {step === 'INPUT' && <Trees className="text-emerald-500" size={24} />}
+                            {step === 'INPUT' ? 'Add a Place' : (initialData ? 'Edit Details' : 'Confirm Details')}
                         </h2>
-                        <button onClick={resetAndClose} className="p-2 hover:bg-white/5 rounded-full text-muted transition-colors">
+                        <button onClick={resetAndClose} className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-zinc-600 transition-colors">
                             <X size={20} />
                         </button>
                     </div>
@@ -178,12 +183,12 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                     {step === 'INPUT' ? (
                         /* INPUT STEP */
                         <div className="space-y-6 animate-in fade-in slide-in-from-left-4">
-                            <div className="p-6 bg-primary/10 rounded-xl border border-primary/20 text-center">
-                                <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 text-primary">
+                            <div className="p-6 bg-blue-50/50 rounded-xl border border-blue-100 text-center">
+                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 text-[#007AFF] shadow-sm border border-blue-100">
                                     <MapPin size={24} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-1">Paste Google Maps Link</h3>
-                                <p className="text-sm text-muted mb-4">We'll insert the location here in your itinerary.</p>
+                                <h3 className="text-lg font-bold text-zinc-900 mb-1">Paste Google Maps Link</h3>
+                                <p className="text-sm text-zinc-500 mb-6">We'll automatically extract the details.</p>
 
                                 <div className="flex gap-2">
                                     <input
@@ -191,20 +196,20 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                                         value={link}
                                         onChange={(e) => { setLink(e.target.value); setError(null); }}
                                         placeholder="https://goo.gl/maps/..."
-                                        className={`flex-1 bg-background border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 ${error ? 'border-red-500/50' : 'border-primary/30'}`}
+                                        className={`flex-1 bg-white border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm text-zinc-900 placeholder:text-zinc-400 ${error ? 'border-red-300 focus:border-red-400' : 'border-zinc-200 focus:border-blue-300'}`}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSmartFill()}
                                     />
                                     <button
                                         onClick={handleSmartFill}
                                         disabled={isLoading || !link}
-                                        className="bg-primary text-background font-bold px-6 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
+                                        className="bg-[#007AFF] text-white font-bold px-5 py-2 rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20 hover:bg-[#0061c2] active:scale-95 transition-all"
                                     >
                                         {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
                                     </button>
                                 </div>
 
                                 {error && (
-                                    <div className="flex items-center gap-2 text-red-400 text-sm mt-2">
+                                    <div className="flex items-center gap-2 text-red-500 text-sm mt-3 bg-red-50 p-2 rounded-lg border border-red-100">
                                         <AlertCircle size={14} />
                                         <span>{error}</span>
                                     </div>
@@ -215,66 +220,73 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                         /* PREVIEW / EDIT STEP */
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
                             {/* Preview Card */}
-                            <div className="bg-surface rounded-xl overflow-hidden border border-white/10">
-                                <div className="h-32 bg-gray-700 relative">
-                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-60" />
-                                    <div className="absolute bottom-3 left-4">
-                                        <div className="flex items-center gap-1.5 mb-1.5">
-                                            <span className="text-xs font-bold bg-primary text-background px-2 py-0.5 rounded flex items-center gap-1">
-                                                {/* Icon Logic Inline or Helper */}
-                                                {formData.type === 'Transport' && <Plane size={12} fill="currentColor" className="opacity-80" />}
-                                                {formData.type === 'Eat' && <Coffee size={12} fill="currentColor" className="opacity-80" />}
-                                                {formData.type === 'Stay' && <Bed size={12} fill="currentColor" className="opacity-80" />}
-                                                {(formData.type === 'Play' || !['Transport', 'Eat', 'Stay'].includes(formData.type)) && <Ticket size={12} fill="currentColor" className="opacity-80" />}
-                                                {formData.type}
-                                            </span>
+                            <div className="bg-zinc-50 rounded-2xl overflow-hidden border border-zinc-200 shadow-sm">
+                                <div className="h-40 bg-zinc-200 relative overflow-hidden group">
+                                    {formData.image ? (
+                                        <img src={formData.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-300">
+                                            <MapPin size={48} />
                                         </div>
-                                        <h3 className="text-xl font-bold text-white max-w-[80%] leading-tight">{formData.title}</h3>
+                                    )}
+
+                                    <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
+
+                                    <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-sm">
+                                        {formData.type}
+                                    </div>
+
+                                    <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+                                    <div className="absolute bottom-3 left-4 right-4 text-white">
+                                        <h3 className="text-xl font-bold leading-tight drop-shadow-md line-clamp-2">{formData.title}</h3>
+                                        <div className="flex items-center gap-1 mt-1 text-xs font-medium text-white/90">
+                                            <span className="opacity-80 line-clamp-1">{formData.description}</span>
+                                        </div>
                                     </div>
                                 </div>
+
                                 <div className="p-4 space-y-4">
                                     {/* Editable Fields */}
-                                    <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Duration Stepper */}
+                                        {!hideDuration && (
+                                            <div className="col-span-2 flex items-center justify-between bg-white p-3 rounded-xl border border-zinc-200 shadow-sm">
+                                                <div className="flex items-center gap-2 text-zinc-500 px-1">
+                                                    <Clock size={16} />
+                                                    <span className="text-xs font-bold uppercase tracking-wider">Duration</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => adjustDuration(-30)}
+                                                        className="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 transition-colors"
+                                                    >
+                                                        <Minus size={14} strokeWidth={3} />
+                                                    </button>
+                                                    <span className="text-zinc-900 font-bold min-w-[60px] text-center text-sm">
+                                                        {formatMinutesToDuration(durationMinutes)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => adjustDuration(30)}
+                                                        className="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 transition-colors"
+                                                    >
+                                                        <Plus size={14} strokeWidth={3} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Link Input */}
-                                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/5">
-                                            <LinkIcon size={16} className="text-muted" />
+                                        <div className="col-span-2 flex items-center gap-3 bg-white p-3 rounded-xl border border-zinc-200 shadow-sm">
+                                            <LinkIcon size={16} className="text-zinc-400 shrink-0" />
                                             <input
                                                 type="text"
                                                 value={link}
                                                 onChange={(e) => setLink(e.target.value)}
                                                 placeholder="Google Maps Link"
-                                                className="bg-transparent border-none text-sm text-white focus:outline-none w-full placeholder-gray-500"
+                                                className="bg-transparent border-none text-sm text-zinc-900 focus:outline-none w-full placeholder:text-zinc-400 font-medium truncate"
                                             />
                                         </div>
-
-                                        {/* Duration Stepper */}
-                                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/5 justify-between">
-                                            <div className="flex items-center gap-2 text-muted px-2">
-                                                <Clock size={16} />
-                                                <span className="text-sm">Duration</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    onClick={() => adjustDuration(-30)}
-                                                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                                                >
-                                                    <Minus size={14} strokeWidth={3} />
-                                                </button>
-                                                <span className="text-white font-mono font-medium min-w-[70px] text-center">
-                                                    {formatMinutesToDuration(durationMinutes)}
-                                                </span>
-                                                <button
-                                                    onClick={() => adjustDuration(30)}
-                                                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                                                >
-                                                    <Plus size={14} strokeWidth={3} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 text-sm text-muted pt-2 border-t border-white/5">
-                                        <span className="text-xs opacity-50 truncate max-w-[200px]">{formData.description}</span>
                                     </div>
                                 </div>
                             </div>
@@ -282,13 +294,13 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData }: AddAc
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setStep('INPUT')}
-                                    className="flex-1 py-3 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5 transition-colors"
+                                    className="flex-1 py-3.5 rounded-xl border border-zinc-200 text-zinc-600 font-bold text-sm hover:bg-zinc-50 hover:border-zinc-300 transition-all"
                                 >
                                     {initialData ? 'Back' : 'Paste New Link'}
                                 </button>
                                 <button
                                     onClick={handleConfirm}
-                                    className="flex-[2] bg-primary text-background font-bold py-3 rounded-xl shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                    className="flex-[2] bg-[#007AFF] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                 >
                                     {initialData ? 'Save Changes' : 'Confirm Insert'}
                                 </button>

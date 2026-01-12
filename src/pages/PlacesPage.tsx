@@ -1,7 +1,8 @@
 import { Layout } from '../components/Layout';
-import { MapPin, Search, Star, ArrowRight, Plus } from 'lucide-react';
+import { MapPin, Search, Star, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState, useEffect } from 'react';
+import { uuidv4 } from '../lib/uuid';
 import { Link } from 'react-router-dom';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -9,14 +10,14 @@ import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TimelineEvent } from '../components/TimelineItem';
 
 export default function PlacesPage() {
-    const { events, setEvents } = useTrip(); // Need setEvents
+    const { events, setEvents, deleteEvent } = useTrip(); // Need deleteEvent
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
     const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const { scrollY } = useScroll();
-    const bgY = useTransform(scrollY, [0, 500], ['0%', '20%']);
+    const bgY = useTransform(scrollY, [0, 500], ['0%', '-15%']);
     const bgOpacity = useTransform(scrollY, [0, 300], [1, 0.3]);
 
     // Dynamic Header Image Cycle
@@ -40,8 +41,24 @@ export default function PlacesPage() {
     }, [events]);
 
     const handleSavePlace = (activity: NewActivity) => {
+        // Prevent Adding Duplicates
+        // We consider it a duplicate if placeId matches, OR if googleMapsLink matches
+        // (We don't match just by title because user might add generic 'Lunch')
+        const isDuplicate = events.some(e => {
+            if (activity.placeId && e.placeId === activity.placeId) return true;
+            if (activity.googleMapsLink && e.googleMapsLink && e.googleMapsLink === activity.googleMapsLink) return true;
+            // Also check title if it looks like a specific place name (optional, but requested "not able to add 2 same places")
+            // For now, ID and Link are the strongest signals.
+            return false;
+        });
+
+        if (isDuplicate) {
+            alert('This place is already in your list!');
+            return false; // Prevent Modal Close
+        }
+
         const newEvent: TimelineEvent = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             type: activity.type,
             title: activity.title,
             time: '', // No time for saved places
@@ -52,7 +69,8 @@ export default function PlacesPage() {
             googleMapsLink: activity.googleMapsLink,
             duration: activity.duration,
             status: 'Saved', // Mark as Saved
-            dayOffset: -1 // Mark as Unscheduled
+            dayOffset: -1, // Mark as Unscheduled
+            placeId: activity.placeId // Ensure placeId is saved
         };
 
         setEvents(prev => [...prev, newEvent]);
@@ -76,7 +94,7 @@ export default function PlacesPage() {
         <Layout>
             <div className="relative min-h-screen bg-zinc-50 pb-24">
                 {/* Parallax Header */}
-                <div className="h-[45vh] w-full fixed top-0 left-0 right-0 z-0 overflow-hidden">
+                <div className="h-[45vh] w-full fixed top-0 left-0 right-0 z-0 overflow-hidden bg-zinc-900">
                     <AnimatePresence mode="popLayout">
                         <motion.img
                             key={bgImage}
@@ -91,16 +109,16 @@ export default function PlacesPage() {
                         />
                     </AnimatePresence>
                     <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-50 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
 
-                    <div className="absolute bottom-20 left-6 z-20">
+                    <div className="absolute bottom-24 left-6 z-20">
                         <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Places</h1>
                         <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Your curated list of must-visit spots.</p>
                     </div>
                 </div>
 
                 {/* Content Layer */}
-                <div className="relative z-10 mt-[35vh]">
+                <div className="relative z-10 mt-[42vh]">
                     <div className="bg-zinc-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] min-h-screen pt-2">
 
                         {/* Search & Filter Sticky Header */}
@@ -119,13 +137,14 @@ export default function PlacesPage() {
                                     </div>
                                     <button
                                         onClick={() => setIsAddModalOpen(true)}
-                                        className="bg-[#007AFF] w-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 hover:bg-[#0061c2] active:scale-95 transition-all"
+                                        className="bg-[#007AFF] px-5 rounded-2xl flex items-center justify-center gap-2 text-white shadow-lg shadow-blue-500/20 hover:bg-[#0061c2] active:scale-95 transition-all font-bold text-sm min-w-fit"
                                     >
-                                        <Plus size={24} />
+                                        <Plus size={20} />
+                                        <span>Add New</span>
                                     </button>
                                 </div>
 
-                                <div className="overflow-x-auto no-scrollbar pb-1">
+                                <div>
                                     <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
                                 </div>
                             </div>
@@ -155,9 +174,25 @@ export default function PlacesPage() {
                                                     )}
 
                                                     <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
+
+                                                    {/* Type Badge */}
                                                     <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-sm">
                                                         {place.type}
                                                     </div>
+
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (window.confirm('Are you sure you want to delete this place?')) {
+                                                                deleteEvent(place.id);
+                                                            }
+                                                        }}
+                                                        className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 border border-white/20 transition-all z-20"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
                                                 </div>
 
                                                 <div className="p-5">
@@ -210,6 +245,7 @@ export default function PlacesPage() {
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 onSave={handleSavePlace}
+                hideDuration={true}
             />
         </Layout>
     );

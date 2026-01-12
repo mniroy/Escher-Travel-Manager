@@ -78,12 +78,19 @@ function extractPlaceInfo(url: string): { placeId?: string; query?: string; coor
  */
 export async function parseGoogleMapsUrl(url: string): Promise<ParsePlaceResult> {
     // First, try the API endpoint (works in Vercel deployment)
+
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased to 8s
+
         const response = await fetch('/api/parse-place', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         // If we get a valid response, use it
         if (response.ok) {
@@ -92,17 +99,35 @@ export async function parseGoogleMapsUrl(url: string): Promise<ParsePlaceResult>
                 return { success: true, data: data as PlaceDetails };
             }
         }
-    } catch {
-        // API not available (local dev), fall through to direct approach
+    } catch (e) {
+        console.warn('API parsing failed or timed out, falling back to local regex:', e);
+        // API not available (local dev or crash), fall through to direct approach
     }
 
     // Fallback: Parse URL and extract basic info
     const placeInfo = extractPlaceInfo(url);
 
-    if (!placeInfo.query && !placeInfo.coords && !placeInfo.placeId) {
+    // If we have a short link but no other info, we should still allow it
+    // The user can fill in the details manually.
+    const isShortLink = url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps');
+
+    if (!placeInfo.query && !placeInfo.coords && !placeInfo.placeId && !isShortLink) {
         return {
             success: false,
             error: 'Could not extract place info from URL. Try copying the full Google Maps URL.',
+        };
+    }
+
+    // Return partial success for short links if extraction failed
+    if (isShortLink && !placeInfo.query) {
+        return {
+            success: true,
+            data: {
+                name: 'New Place', // Placeholder
+                address: 'Details from link',
+                placeId: `link-${Date.now()}`,
+                googleMapsUrl: url,
+            },
         };
     }
 
