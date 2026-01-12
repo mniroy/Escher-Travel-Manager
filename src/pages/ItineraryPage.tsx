@@ -380,7 +380,7 @@ export default function ItineraryPage() {
 
             {/* Sticky Actions Bar */}
             <div className="sticky top-0 z-30 transition-all -mt-5">
-                <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-[2rem] overflow-hidden shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-[2rem] overflow-hidden shadow-[0_-12px_40px_rgba(0,0,0,0.4)]">
                     {/* Check/Collapse Toggle Area */}
                     <div
                         className="w-full flex justify-center pt-3 pb-1 cursor-pointer active:opacity-70 transition-opacity"
@@ -517,8 +517,8 @@ export default function ItineraryPage() {
                         ))
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
-                            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
-                                <MapPin size={24} className="opacity-50 text-zinc-500" />
+                            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-6 border border-blue-100 shadow-sm">
+                                <MapPin size={24} className="text-[#007AFF]" />
                             </div>
                             <button
                                 onClick={() => openModalAt(0)}

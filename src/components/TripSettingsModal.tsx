@@ -50,7 +50,7 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                                 type="text"
                                 value={settings.tripName}
                                 onChange={(e) => setSettings({ ...settings, tripName: e.target.value })}
-                                className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium"
+                                className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-sm"
                                 placeholder="e.g. Bali Summer Trip"
                             />
                         </div>
@@ -66,7 +66,7 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                                     type="date"
                                     value={settings.startDate}
                                     onChange={(e) => setSettings({ ...settings, startDate: e.target.value })}
-                                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium [color-scheme:dark]"
+                                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-sm [color-scheme:dark]"
                                 />
                             </div>
                         </div>
@@ -76,7 +76,7 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Duration (Days)</label>
                             <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5 pl-3">
                                 <Clock className="text-zinc-500" size={16} />
-                                <div className="flex-grow text-center font-bold text-white text-sm">
+                                <div className="flex-grow text-center font-bold text-white text-xs">
                                     {settings.duration} Days
                                 </div>
                                 <div className="flex bg-zinc-800 rounded-lg p-0.5 gap-0.5">
