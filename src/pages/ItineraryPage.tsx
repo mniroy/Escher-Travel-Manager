@@ -5,12 +5,55 @@ import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TripSettingsModal } from '../components/TripSettingsModal';
-import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder } from 'framer-motion';
+import { optimizeRoute } from '../lib/googleMaps';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Helper functions for time calculation
+const parseTime = (str: string) => {
+    try {
+        const [time, period] = str.split(' ');
+        let [h, m] = time.split(':').map(Number);
+        if (period === 'PM' && h !== 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        return h * 60 + m;
+    } catch (e) {
+        return 9 * 60; // Default 9 AM
+    }
+};
+
+const parseDuration = (str?: string) => {
+    if (!str) return 60; // Default 1h
+    try {
+        const hMatch = str.match(/(\d+)h/);
+        const mMatch = str.match(/(\d+)m/);
+        let m = 0;
+        if (hMatch) m += parseInt(hMatch[1]) * 60;
+        if (mMatch) m += parseInt(mMatch[1]);
+        return m || 60;
+    } catch (e) {
+        return 60;
+    }
+};
+
+const formatTime = (minutes: number) => {
+    let h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const period = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0 || h === 24) h = 12;
+    if (h > 24) h -= 24; // Handle overlap to next day roughly
+    return `${h}:${m.toString().padStart(2, '0')} ${period}`;
+};
+
+const hhmmToMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+};
 
 export default function ItineraryPage() {
     const {
@@ -27,7 +70,89 @@ export default function ItineraryPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [isUpdatingTraffic, setIsUpdatingTraffic] = useState(false);
     const [isControlsExpanded, setIsControlsExpanded] = useState(true);
+
+    const recalculateSchedule = (baseEvents?: TimelineEvent[]) => {
+        const sourceEvents = baseEvents || events;
+        const currentOffsets = new Set(selectedDayOffsets);
+
+        const currentDayEvents = sourceEvents.filter(e => currentOffsets.has(e.dayOffset || 0));
+        const otherEvents = sourceEvents.filter(e => !currentOffsets.has(e.dayOffset || 0));
+
+        if (currentDayEvents.length === 0) return;
+
+        let currentTime = parseTime(currentDayEvents[0].time);
+
+        const updatedDayEvents = currentDayEvents.map((event, index) => {
+            const parkingBuffer = event.parkingBuffer ?? 10;
+
+            if (index > 0 && event.travelTime) {
+                const travelMins = parseDuration(event.travelTime);
+                // Add travel time + parking buffer to get to the location
+                currentTime += (travelMins + parkingBuffer);
+            }
+
+            const newTimeStr = formatTime(currentTime);
+            const duration = parseDuration(event.duration);
+
+            // Note: currentTime tracks the 'end' of the activity (departure)
+            currentTime += duration;
+
+            return { ...event, time: newTimeStr };
+        });
+
+        setEvents([...otherEvents, ...updatedDayEvents]);
+    };
+
+    const handleTimeChange = (id: string, newHHMM: string) => {
+        const minutes = hhmmToMinutes(newHHMM);
+        const formattedTime = formatTime(minutes);
+
+        const index = events.findIndex(e => e.id === id);
+        if (index === -1) return;
+
+        const newEventsList = [...events];
+        newEventsList[index] = { ...newEventsList[index], time: formattedTime };
+
+        // Pass the updated list directly to avoid stale state issues
+        recalculateSchedule(newEventsList);
+    };
+
+    const handleBufferChange = (id: string, newBuffer: number) => {
+        const index = events.findIndex(e => e.id === id);
+        if (index === -1) return;
+
+        const newEventsList = [...events];
+        newEventsList[index] = { ...newEventsList[index], parkingBuffer: newBuffer };
+
+        recalculateSchedule(newEventsList);
+    };
+
+    const handleToggleEdit = () => {
+        if (isEditing) {
+            // User clicked "Done"
+            recalculateSchedule();
+        }
+        setIsEditing(!isEditing);
+    };
+
+    const handleReorder = (newOrder: TimelineEvent[]) => {
+        // We only want to reorder the events that are currently visible/filtered
+        // But we must preserve the others.
+
+        // 1. Identify IDs of currently filtered events
+        const currentIds = new Set(filteredEvents.map(e => e.id));
+
+        // 2. Get events that are NOT in the current view
+        const otherEvents = events.filter(e => !currentIds.has(e.id));
+
+        // 3. Combine others + new order
+        // Note: usage of 'setEvents' with Reorder must be synchronous or immediate for smooth drag
+        // Framer Motion Reorder updates the passed 'values' array optimistically during drag?
+        // Actually, onReorder is called with the new array.
+        setEvents([...otherEvents, ...newOrder]);
+    };
 
     // Undo History State
     const [_history, setHistory] = useState<TimelineEvent[][]>([]);
@@ -51,43 +176,91 @@ export default function ItineraryPage() {
     // We store the insert index to know where to place the new item
     const [insertIndex, setInsertIndex] = useState<number | null>(null);
 
-    const handleOptimize = () => {
+    const handleOptimize = async () => {
         setIsOptimizing(true);
         addToHistory(events);
 
-        // Simulate calculation delay
-        setTimeout(() => {
+        try {
             const currentDayEvents = events.filter(e => selectedDayOffsets.includes(e.dayOffset || 0));
             const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
 
-            // Mock Optimization: Simple sort by type then re-assign Mock times
-            // In a real app, this would call a routing API
-            const optimizedDay = [...currentDayEvents].sort((a, b) => {
-                // Mock logic: Put 'Eat' events at standard meal times if possible, else sort by ID as a shuffle substitute
-                if (a.type === 'Eat' && b.type !== 'Eat') return -1;
-                if (b.type === 'Eat' && a.type !== 'Eat') return 1;
-                return Math.random() - 0.5;
-            });
+            // Call Real Optimization API (with reorder)
+            const optimizedDay = await optimizeRoute(currentDayEvents);
 
-            // Re-assign times sequentially to simulate "Smart Scheduling"
-            let currentTime = 9 * 60; // Start at 9:00 AM in minutes
-            const newOptimizedDay = optimizedDay.map((e, index) => {
-                const hour = Math.floor(currentTime / 60);
-                const minute = currentTime % 60;
-                const timeString = `${hour > 12 ? hour - 12 : hour}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+            // Re-calculate timestamps based on new order and real travel times
+            if (optimizedDay.length > 0) {
+                let currentTime = parseTime(optimizedDay[0].time); // Preserve start time of the day
 
-                // Add mock duration (e.g. 1.5 hours) for next start time
-                currentTime += 90;
+                const finalOptimizedDay = optimizedDay.map((event: TimelineEvent, index: number) => {
+                    // Update start time
+                    const updatedEvent = { ...event, time: formatTime(currentTime) };
 
-                // Add mock travel time
-                const travelTime = index < optimizedDay.length - 1 ? `${Math.floor(Math.random() * 20 + 10)}m` : undefined;
+                    // 1. If this event has travelTime (meaning travel FROM prev to THIS), add to currentTime.
+                    if (index > 0 && event.travelTime) {
+                        currentTime += parseDuration(event.travelTime);
+                    }
 
-                return { ...e, time: timeString, travelTime };
-            });
+                    // 2. Set Start Time
+                    updatedEvent.time = formatTime(currentTime);
 
-            setEvents([...otherEvents, ...newOptimizedDay]);
+                    // 3. Add Duration of THIS event to advance currentTime
+                    const duration = parseDuration(event.duration);
+                    currentTime += duration;
+
+                    return updatedEvent;
+                });
+
+                setEvents([...otherEvents, ...finalOptimizedDay]);
+            }
+
+        } catch (error) {
+            console.error("Optimization failed", error);
+        } finally {
             setIsOptimizing(false);
-        }, 1500);
+        }
+    };
+
+    const handleUpdateTraffic = async () => {
+        setIsUpdatingTraffic(true);
+        addToHistory(events);
+        try {
+            const currentDayEvents = events.filter(e => selectedDayOffsets.includes(e.dayOffset || 0));
+            const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
+
+            // Call Real Optimization API (preserve order)
+            const trafficUpdatedEvents = await optimizeRoute(currentDayEvents, { preserveOrder: true });
+
+            if (trafficUpdatedEvents.length > 0) {
+                let currentTime = parseTime(trafficUpdatedEvents[0].time); // Preserve start time
+
+                const finalEvents = trafficUpdatedEvents.map((event: TimelineEvent, index: number) => {
+                    // Preserve congestion and travelTime from API
+                    const updatedEvent = {
+                        ...event,
+                        time: formatTime(currentTime),
+                        congestion: event.congestion, // Explicit copy
+                        travelTime: event.travelTime   // Explicit copy
+                    };
+
+                    if (index > 0 && event.travelTime) {
+                        currentTime += parseDuration(event.travelTime);
+                    }
+
+                    updatedEvent.time = formatTime(currentTime);
+
+                    const duration = parseDuration(event.duration);
+                    currentTime += duration;
+
+                    return updatedEvent;
+                });
+
+                setEvents([...otherEvents, ...finalEvents]);
+            }
+        } catch (error) {
+            console.error("Traffic update failed", error);
+        } finally {
+            setIsUpdatingTraffic(false);
+        }
     };
 
     const getIcon = (type: string) => {
@@ -97,35 +270,6 @@ export default function ItineraryPage() {
             case 'Stay': return <Bed size={18} />;
             default: return <MapPin size={18} />;
         }
-    };
-
-    // --- Time Utilities and Logic ---
-    const parseTime = (timeStr: string): number => {
-        if (!timeStr) return 0;
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-    };
-
-    const formatTime = (minutes: number): string => {
-        let h = Math.floor(minutes / 60);
-        let m = Math.floor(minutes % 60);
-        const period = h >= 12 ? 'PM' : 'AM';
-        if (h > 12) h -= 12;
-        if (h === 0) h = 12;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
-    };
-
-    const parseDuration = (durStr?: string): number => {
-        if (!durStr) return 0;
-        let minutes = 0;
-        const hMatch = durStr.match(/(\d+)h/);
-        const mMatch = durStr.match(/(\d+)m/);
-        if (hMatch) minutes += parseInt(hMatch[1]) * 60;
-        if (mMatch) minutes += parseInt(mMatch[1]);
-        return minutes;
     };
 
     const handleCheckIn = (id: string) => {
@@ -202,15 +346,8 @@ export default function ItineraryPage() {
     };
 
     const toggleDate = (offset: number) => {
-        setSelectedDayOffsets(prev => {
-            if (prev.includes(offset)) {
-                // Don't allow unselecting the last date (always keep at least one)
-                if (prev.length === 1) return prev;
-                return prev.filter(d => d !== offset);
-            } else {
-                return [...prev, offset].sort((a, b) => a - b);
-            }
-        });
+        // Single Select Mode
+        setSelectedDayOffsets([offset]);
     };
 
     const handleAddActivity = (activityData: NewActivity) => {
@@ -358,19 +495,60 @@ export default function ItineraryPage() {
         return () => clearInterval(interval);
     }, [validImages.length]);
 
-    // Scroll-based Collapse Logic
+    // Scroll-based Collapse & Auto-Expand Logic
     const [hasCollapsedOnScroll, setHasCollapsedOnScroll] = useState(false);
     useMotionValueEvent(scrollY, "change", (latest) => {
-        const threshold = 100; // Pixel threshold to trigger collapse
-        if (latest > threshold && !hasCollapsedOnScroll && isControlsExpanded) {
+        const collapseThreshold = 100;
+        const expandThreshold = 50;
+
+        if (latest > collapseThreshold && !hasCollapsedOnScroll && isControlsExpanded) {
             setIsControlsExpanded(false);
             setHasCollapsedOnScroll(true);
-        } else if (latest < threshold && hasCollapsedOnScroll) {
-            // Reset the lock when back at top, but don't force expand (user choice)
-            // or we could optional: setIsControlsExpanded(true); if we want auto-expand at top
+        } else if (latest < expandThreshold) {
+            // "Pull down" / Back to top -> Auto Expand
+            if (!isControlsExpanded) {
+                setIsControlsExpanded(true);
+            }
             setHasCollapsedOnScroll(false);
         }
     });
+
+    // Calculate Stats
+    const stats = useMemo(() => {
+        let destinations = 0;
+        let roadMinutes = 0;
+        let spotMinutes = 0;
+
+        filteredEvents.forEach(e => {
+            destinations++;
+
+            // Spot Time
+            if (e.status !== 'Skipped') {
+                spotMinutes += parseDuration(e.duration);
+            }
+
+            // Road Time
+            if (e.travelTime) {
+                roadMinutes += parseDuration(e.travelTime);
+            }
+        });
+
+        const totalMinutes = roadMinutes + spotMinutes;
+
+        const formatDurationShort = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (h > 0) return `${h}h ${m}m`;
+            return `${m}m`;
+        };
+
+        return {
+            destinations,
+            roadTime: formatDurationShort(roadMinutes),
+            spotTime: formatDurationShort(spotMinutes),
+            totalTime: formatDurationShort(totalMinutes)
+        };
+    }, [filteredEvents]);
 
     return (
         <Layout>
@@ -409,7 +587,7 @@ export default function ItineraryPage() {
             <header className="relative z-10 min-h-[280px] flex flex-col justify-end p-6 overflow-hidden">
                 {/* Background Image */}
                 <motion.div
-                    style={{ y: bgY, opacity: bgOpacity }}
+                    style={{ y: isEditing ? '0%' : bgY, opacity: bgOpacity }}
                     className="absolute inset-0 z-0 bg-zinc-900"
                 >
                     <AnimatePresence mode='popLayout'>
@@ -475,30 +653,62 @@ export default function ItineraryPage() {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                <div className="pb-2 border-b border-zinc-100">
-                                    <CategoryFilter selected={category} onSelect={setCategory} />
+                                {/* Trip Summary Stats */}
+                                <div className="px-6 py-4 border-b border-zinc-100">
+                                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 text-center">
+                                        Day {(selectedDayOffsets[0] || 0) + 1}
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                            <div className="text-zinc-400 mb-1"><MapPin size={14} /></div>
+                                            <div className="text-sm font-bold text-zinc-900">{stats.destinations}</div>
+                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Places</div>
+                                        </div>
+                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                            <div className="text-zinc-400 mb-1"><Clock size={14} /></div>
+                                            <div className="text-sm font-bold text-zinc-900">{stats.totalTime}</div>
+                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Total</div>
+                                        </div>
+                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                            <div className="text-zinc-400 mb-1"><CarFront size={14} /></div>
+                                            <div className="text-sm font-bold text-zinc-900">{stats.roadTime}</div>
+                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Road</div>
+                                        </div>
+                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                            <div className="text-zinc-400 mb-1"><Hourglass size={14} /></div>
+                                            <div className="text-sm font-bold text-zinc-900">{stats.spotTime}</div>
+                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Spot</div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Date Selector */}
-                                <div className="flex gap-2 flex-wrap justify-start px-6 py-4 pb-5 overflow-x-auto no-scrollbar">
-                                    {tripDates.map((dateObj, i) => {
-                                        const isSelected = selectedDayOffsets.includes(dateObj.offset);
-                                        return (
-                                            <button
-                                                key={i}
-                                                onClick={() => toggleDate(dateObj.offset)}
-                                                className={`
-                                                flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
-                                                ${isSelected
-                                                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                        : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
-                                            `}
-                                            >
-                                                <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
-                                                <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
-                                            </button>
-                                        )
-                                    })}
+                                {/* Controls Group (Grey Background) */}
+                                <div className="bg-zinc-50/80 border-t border-zinc-200">
+                                    <div className="pt-4 pb-2">
+                                        <CategoryFilter selected={category} onSelect={setCategory} />
+                                    </div>
+
+                                    {/* Date Selector */}
+                                    <div className="flex gap-2 flex-wrap justify-start px-6 pb-5 overflow-x-auto no-scrollbar">
+                                        {tripDates.map((dateObj, i) => {
+                                            const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                                            return (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => toggleDate(dateObj.offset)}
+                                                    className={`
+                                                    flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
+                                                    ${isSelected
+                                                            ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
+                                                            : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
+                                                `}
+                                                >
+                                                    <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
+                                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
                                 </div>
 
 
@@ -507,13 +717,28 @@ export default function ItineraryPage() {
                     </AnimatePresence>
 
                     {/* Edit Controls Bar - Always Visible */}
-                    <div className="px-6 py-3 flex justify-between items-center bg-zinc-50/95 backdrop-blur-xl border-t border-zinc-200">
-                        <div className="flex items-center gap-3">
+                    <div className="px-6 py-3 w-full bg-zinc-50/95 backdrop-blur-xl border-t border-zinc-200">
+                        <div className="grid grid-cols-3 gap-3 w-full">
+                            <button
+                                onClick={handleUpdateTraffic}
+                                disabled={isUpdatingTraffic}
+                                className={`
+                                h-8 px-3 rounded-full border flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all shadow-sm w-full
+                                ${isUpdatingTraffic
+                                        ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-wait'
+                                        : 'bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95'
+                                    }
+                            `}
+                            >
+                                <RefreshCcw size={10} className={isUpdatingTraffic ? 'animate-spin' : ''} />
+                                {isUpdatingTraffic ? 'Updating...' : 'Update Traffic'}
+                            </button>
+
                             <button
                                 onClick={handleOptimize}
                                 disabled={isOptimizing}
                                 className={`
-                                h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
+                                h-8 px-3 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all w-full
                                 ${isOptimizing
                                         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
                                         : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
@@ -525,8 +750,8 @@ export default function ItineraryPage() {
                             </button>
 
                             <button
-                                onClick={() => setIsEditing(!isEditing)}
-                                className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition-all shadow-sm
+                                onClick={handleToggleEdit}
+                                className={`h-8 px-3 rounded-full border flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all shadow-sm w-full
                                 ${isEditing
                                         ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
                                         : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
@@ -536,89 +761,95 @@ export default function ItineraryPage() {
                                 {isEditing ? 'Done' : 'Edit'}
                             </button>
                         </div>
-                        <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
-                            {filteredEvents.length} Items
-                        </span>
                     </div>
                 </div>
             </div>
 
-            <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
-                <AnimatePresence mode='popLayout'>
-                    {filteredEvents.length > 0 ? (
-                        filteredEvents.map((event, index) => (
-                            <motion.div
-                                layout
-                                key={event.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.3 }}
-                                className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                                style={{ animationDelay: `${index * 50}ms` }}
-                            >
+            <div className="px-4 pb-32 pt-8 min-h-[50vh] transition-all max-w-2xl mx-auto">
+                {filteredEvents.length > 0 ? (
+                    <Reorder.Group
+                        axis="y"
+                        values={filteredEvents}
+                        onReorder={handleReorder}
+                        className="space-y-0"
+                    >
+                        <AnimatePresence mode='popLayout'>
+                            {filteredEvents.map((event, index) => (
+                                <Reorder.Item
+                                    key={event.id}
+                                    value={event}
+                                    dragListener={isEditing}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="relative"
+                                    style={{ touchAction: isEditing ? 'none' : 'auto' }}
+                                >
 
-                                {/* Insert Zone BEFORE item */}
-                                {isEditing && (
-                                    <div
-                                        onClick={() => openSelectorAt(index)}
-                                        className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
-                                    >
-                                        <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
-                                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
-                                                <Plus size={10} strokeWidth={3} /> INSERT HERE
+                                    {/* Insert Zone BEFORE item */}
+                                    {isEditing && (
+                                        <div
+                                            onClick={() => openSelectorAt(index)}
+                                            className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                                        >
+                                            <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
+                                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                                                    <Plus size={10} strokeWidth={3} /> INSERT HERE
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-
-                                <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
-                                    <TimelineItem
-                                        event={event}
-                                        isLast={index === filteredEvents.length - 1}
-                                        isFirst={index === 0}
-                                        isCompact={isEditing}
-                                        icon={getIcon(event.type)}
-                                        // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
-                                        onCheckIn={handleCheckIn}
-                                        onSkip={handleSkip}
-                                    />
-                                    {isEditing && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                            className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
-                                        >
-                                            <X size={14} strokeWidth={3} />
-                                        </button>
                                     )}
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
-                            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-6 border border-blue-100 shadow-sm">
-                                <MapPin size={24} className="text-[#007AFF]" />
-                            </div>
-                            <button
-                                onClick={() => openSelectorAt(0)}
-                                className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                            >
-                                <Plus size={16} strokeWidth={3} />
-                                Add First Activity
-                            </button>
-                        </div>
-                    )}
 
-                    {/* Final Insert Zone at the end */}
-                    {isEditing && filteredEvents.length > 0 && (
-                        <div
-                            onClick={() => openSelectorAt(filteredEvents.length)}
-                            className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
-                        >
-                            + Add to End
+                                    <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
+                                        <TimelineItem
+                                            event={event}
+                                            isLast={index === filteredEvents.length - 1}
+                                            isFirst={index === 0}
+                                            isCompact={isEditing}
+                                            icon={getIcon(event.type)}
+                                            nextCongestion={filteredEvents[index + 1]?.congestion}
+                                            onCheckIn={handleCheckIn}
+                                            onSkip={handleSkip}
+                                            onTimeChange={handleTimeChange}
+                                            onBufferChange={handleBufferChange}
+                                        />
+                                        {isEditing && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                                className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
+                                            >
+                                                <X size={14} strokeWidth={3} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </Reorder.Item>
+                            ))}
+                        </AnimatePresence>
+                    </Reorder.Group>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
+                        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-6 border border-blue-100 shadow-sm">
+                            <MapPin size={24} className="text-[#007AFF]" />
                         </div>
-                    )}
-                </AnimatePresence>
+                        <button
+                            onClick={() => openSelectorAt(0)}
+                            className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                            <Plus size={16} strokeWidth={3} />
+                            Add First Activity
+                        </button>
+                    </div>
+                )}
+
+                {/* Final Insert Zone at the end */}
+                {isEditing && filteredEvents.length > 0 && (
+                    <div
+                        onClick={() => openSelectorAt(filteredEvents.length)}
+                        className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                    >
+                        + Add to End
+                    </div>
+                )}
             </div>
         </Layout>
     );

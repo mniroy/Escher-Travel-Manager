@@ -11,7 +11,7 @@ interface CategoryFilterProps {
 export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
     const categories: { id: Category; icon: React.ReactNode; label: string }[] = [
         { id: 'All', icon: <MapPin size={16} />, label: 'All' },
-        { id: 'Transport', icon: <Plane size={16} />, label: 'Ride' }, // Renamed from Transport to fit
+        { id: 'Transport', icon: <Plane size={16} />, label: 'GO' }, // Renamed from Transport to fit
         { id: 'Stay', icon: <Bed size={16} />, label: 'Stay' },
         { id: 'Eat', icon: <Coffee size={16} />, label: 'Eat' },
         { id: 'Play', icon: <Ticket size={16} />, label: 'Play' },

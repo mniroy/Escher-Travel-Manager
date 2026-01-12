@@ -25,7 +25,10 @@ export interface NewActivity {
     reviews?: number;
     image?: string;
     duration?: string;
-    placeId?: string; // Added placeId
+    placeId?: string;
+    lat?: number;
+    lng?: number;
+    address?: string;
 }
 
 export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDuration = false }: AddActivityModalProps) {
@@ -129,7 +132,10 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                 rating: place.rating,
                 reviews: place.reviewCount,
                 image: place.photos?.[0],
-                placeId: place.placeId // Save the place ID
+                placeId: place.placeId, // Save the place ID
+                lat: place.lat,         // Save coordinates for Routes API
+                lng: place.lng,
+                address: place.address
             }));
 
             setStep('PREVIEW');
@@ -145,7 +151,10 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
             ...formData,
             googleMapsLink: link,
             duration: formatMinutesToDuration(durationMinutes),
-            placeId: formData.placeId // Ensure placeId is passed
+            placeId: formData.placeId,
+            lat: formData.lat,
+            lng: formData.lng,
+            address: formData.address
         });
 
         // If onSave returns explicitly false, do not close the modal

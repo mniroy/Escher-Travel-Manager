@@ -1,4 +1,4 @@
-import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Footprints, Car } from 'lucide-react';
+import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car } from 'lucide-react';
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -31,6 +31,11 @@ export interface TimelineEvent {
     }[];
     placeId?: string;
     address?: string;
+    lat?: number;
+    lng?: number;
+    congestion?: 'low' | 'moderate' | 'high';
+    travelDistance?: string;
+    parkingBuffer?: number; // in minutes, default 10
 }
 
 interface TimelineItemProps {
@@ -41,61 +46,114 @@ interface TimelineItemProps {
     onClick?: () => void;
     onCheckIn?: (id: string) => void;
     onSkip?: (id: string) => void;
-    // isFirst?: boolean; // Removed duplicate
     isCompact?: boolean;
+    nextCongestion?: 'low' | 'moderate' | 'high';
+    onTimeChange?: (id: string, newTime: string) => void;
+    onBufferChange?: (id: string, newBuffer: number) => void;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip }: TimelineItemProps) {
-    const hasTravelTime = !!event.travelTime;
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange }: TimelineItemProps) {
+    const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
     const isCheckedIn = event.status === 'Checked In';
     const showStartBadge = isFirst;
 
+    // Traffic Coloring Logic
+    let connectorColor = 'bg-blue-200'; // Default line color
+    let badgeBorderColor = 'border-zinc-200';
+    let badgeTextColor = 'text-zinc-500';
+    let badgeBgColor = 'bg-zinc-100';
 
+    // Outgoing color for the next segment
+    let outgoingConnectorColor = 'bg-blue-200';
+    if (nextCongestion === 'high') outgoingConnectorColor = 'bg-red-500';
+    else if (nextCongestion === 'moderate') outgoingConnectorColor = 'bg-amber-400';
+    else if (nextCongestion === 'low') outgoingConnectorColor = 'bg-emerald-400';
 
+    if (showTravelTime) {
+        if (event.congestion === 'high') {
+            connectorColor = 'bg-red-500';
+            badgeBorderColor = 'border-red-200';
+            badgeTextColor = 'text-red-600';
+            badgeBgColor = 'bg-red-50';
+        } else if (event.congestion === 'moderate') {
+            connectorColor = 'bg-amber-400';
+            badgeBorderColor = 'border-amber-200';
+            badgeTextColor = 'text-amber-600';
+            badgeBgColor = 'bg-amber-50';
+        } else if (event.congestion === 'low') {
+            connectorColor = 'bg-emerald-400'; // Explicit Green for good traffic
+            badgeBorderColor = 'border-emerald-200';
+            badgeTextColor = 'text-emerald-600';
+            badgeBgColor = 'bg-emerald-50';
+        } else {
+            // Default if no congestion info but has travel time (shouldn't happen with new API)
+            // connectorColor = 'bg-blue-200'; // Keep default
+        }
+    }
 
     return (
-        <div className={`flex gap-4 relative group ${(hasTravelTime || showStartBadge) ? 'mt-16' : ''}`}>
+        <div className="flex flex-col items-center relative group pb-4 w-full">
 
-            {/* Timeline Connector */}
-            <div className="flex flex-col items-center">
-                {/* Connector Line Extension */}
-                {(hasTravelTime || showStartBadge) && (
-                    <div className="absolute -top-16 h-16 w-[2px] bg-blue-200 left-1/2 -translate-x-1/2" />
-                )}
+            {/* 1. THE CONTINUOUS SPINE (Z-INDEX 0) */}
+            <div className={`absolute top-0 w-[5px] left-1/2 -translate-x-1/2 ${showStartBadge ? 'bg-blue-200' : connectorColor} transition-colors duration-500 z-0`}
+                style={{ height: (showTravelTime || showStartBadge) ? '64px' : '0px' }} />
 
-                {/* Top Badge: Travel Time OR Start Label */}
-                {(hasTravelTime || showStartBadge) && (
-                    <div className={`absolute -top-16 h-16 left-1/2 -translate-x-1/2 flex items-center justify-center z-10 ${isSkipped ? 'opacity-30' : ''}`}>
+            {!isLast && (
+                <div className={`absolute bottom-0 w-[5px] left-1/2 -translate-x-1/2 ${outgoingConnectorColor} transition-colors duration-500 z-0`}
+                    style={{ top: (showTravelTime || showStartBadge) ? '64px' : '0px' }} />
+            )}
+
+            {/* 2. TRAVEL INFO SEGMENT (Now much more compact) */}
+            {(showTravelTime || showStartBadge) && (
+                <div className="h-16 w-full flex items-center justify-center relative z-10">
+                    <div className={`absolute inset-0 flex items-center justify-center ${showStartBadge ? 'items-start pt-2' : ''} ${isSkipped ? 'opacity-30' : ''}`}>
                         {showStartBadge ? (
-                            <div className="bg-white border border-blue-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap z-20">
-                                <span className="text-[10px] text-[#007AFF] font-bold uppercase tracking-wide flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#007AFF]" />
-                                    Start
-                                </span>
+                            <div className="flex items-center justify-center relative z-30 group/start">
+                                <div className="bg-white border-2 border-blue-200 rounded-full flex items-center shadow-xl z-20 overflow-hidden">
+                                    {/* Area 1: Time Setting (Click to open picker) */}
+                                    <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
+                                        <span className="text-[12px] text-[#007AFF] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                            {event.time}
+                                            <Pencil size={10} className="opacity-40" />
+                                        </span>
+                                        <input
+                                            type="time"
+                                            className="absolute inset-0 opacity-0 cursor-pointer z-30"
+                                            onChange={(e) => onTimeChange?.(event.id, e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Area 2: 'Now' Button (Instant update) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const now = new Date();
+                                            const hhmm = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                                            onTimeChange?.(event.id, hhmm);
+                                        }}
+                                        className="flex items-center gap-1.5 text-[#007AFF] hover:bg-blue-50 px-4 py-1.5 transition-colors active:bg-blue-100 h-full"
+                                    >
+                                        <Timer size={13} strokeWidth={2.5} />
+                                        <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">Now</span>
+                                    </button>
+                                </div>
                             </div>
                         ) : (
-                            <div className="bg-zinc-100 border border-zinc-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
-                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide flex items-center gap-1.5">
-                                    {event.travelMode === 'walk' ? <Footprints size={10} className="text-zinc-500" /> : <Car size={10} className="text-zinc-500" />}
+                            <div className={`${badgeBgColor} border-2 ${badgeBorderColor} rounded-full px-5 py-2 flex items-center gap-2.5 shadow-xl whitespace-nowrap transition-all duration-500 z-20 hover:scale-105 backdrop-blur-sm`}>
+                                <span className={`text-[11px] ${badgeTextColor} font-black uppercase tracking-widest flex items-center gap-2.5`}>
+                                    <Clock size={14} strokeWidth={3} className={badgeTextColor} />
                                     {event.travelTime}
                                 </span>
                             </div>
                         )}
                     </div>
-                )}
-
-                <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center z-10 shrink-0 shadow-sm relative transition-all duration-300 ${isCheckedIn ? 'bg-[#007AFF] border-[#007AFF] text-white' :
-                    isSkipped ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-blue-100 text-[#007AFF] shadow-md shadow-blue-500/10'
-                    }`}>
-                    {icon}
                 </div>
+            )}
 
-                {!isLast && <div className="w-[2px] bg-blue-200 flex-grow my-2 min-h-[40px] rounded-full" />}
-            </div>
-
-            {/* Content Card */}
-            <div className={`flex-grow pb-8 transition-all duration-300 ${isSkipped ? 'opacity-50' : ''}`}>
+            {/* 3. THE CONTENT CARD (POI Icon removed to save space) */}
+            <div className={`w-full max-w-[500px] px-2 relative z-10 transition-all duration-300 ${isSkipped ? 'opacity-50' : ''}`}>
 
                 {/* Custom Flight Ticket UI */}
                 {event.id === '1' && event.type === 'Transport' ? (
@@ -105,7 +163,28 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                             {/* Flight Path Visual */}
                             <div className="flex justify-between items-start text-white relative z-10">
                                 <div className="text-left">
-                                    <div className="text-xs text-slate-400 font-bold mb-1 opacity-80">{event.time}</div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="flex items-center bg-white/5 backdrop-blur-md rounded-full border border-white/10 overflow-hidden shadow-sm">
+                                            <span className="text-[10px] font-bold text-slate-300 px-2.5 py-1 border-r border-white/5">
+                                                {event.time}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const currentBuffer = event.parkingBuffer ?? 10;
+                                                    const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
+                                                    onBufferChange?.(event.id, nextBuffer);
+                                                }}
+                                                className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] text-slate-400 hover:bg-white/5 hover:text-[#007AFF] transition-all font-bold group/park"
+                                                title="Adjust airport buffer/parking time"
+                                            >
+                                                <Car size={10} className="text-[#007AFF] opacity-70 group-hover/park:opacity-100" />
+                                                <span>
+                                                    {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div className="text-3xl font-bold tracking-wider mb-1">CGK</div>
                                     <div className="text-xs text-slate-400 font-medium">Jakarta</div>
                                 </div>
@@ -156,9 +235,27 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                             {/* Single Block Content (Skipped) */}
                             {/* Header */}
                             <div className="flex justify-between items-start">
-                                <span className="text-sm font-bold text-zinc-400">
-                                    {event.time}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center bg-zinc-200/50 rounded-full border border-zinc-300/50 overflow-hidden shadow-sm">
+                                        <span className="text-[11px] font-bold text-zinc-400 px-3 py-1 border-r border-zinc-300/30">
+                                            {event.time}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const currentBuffer = event.parkingBuffer ?? 10;
+                                                const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
+                                                onBufferChange?.(event.id, nextBuffer);
+                                            }}
+                                            className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-zinc-400 font-bold hover:bg-zinc-300/50 hover:text-[#007AFF] transition-all"
+                                        >
+                                            <Car size={10} />
+                                            <span>
+                                                {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] text-zinc-500 bg-zinc-200 px-2 py-0.5 rounded-full font-bold border border-zinc-300">Skipped</span>
                                 </div>
@@ -204,7 +301,23 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 onClick={onClick}
                                 className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-300 transition-all"
                             >
-                                <span className="text-xs font-bold text-zinc-500 whitespace-nowrap min-w-[3rem] text-center bg-zinc-100 px-2 py-1 rounded-md">{event.time}</span>
+                                <div className="flex items-center bg-zinc-100 rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
+                                    <span className="text-xs font-bold text-zinc-500 whitespace-nowrap bg-zinc-100 px-3 py-1.5 border-r border-zinc-200/50 min-w-[3.5rem] text-center">{event.time}</span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const currentBuffer = event.parkingBuffer ?? 10;
+                                            const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
+                                            onBufferChange?.(event.id, nextBuffer);
+                                        }}
+                                        className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-bold hover:bg-zinc-200/30 hover:text-[#007AFF] transition-colors px-3 py-1.5 whitespace-nowrap"
+                                    >
+                                        <Car size={10} />
+                                        <span>
+                                            {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
+                                        </span>
+                                    </button>
+                                </div>
                                 <div className="flex-grow min-w-0">
                                     <h3 className="text-sm font-bold text-zinc-900 truncate">{event.title}</h3>
                                     {event.duration && <p className="text-[10px] text-zinc-400 font-medium flex items-center gap-1"><Clock size={10} /> {event.duration}</p>}
@@ -233,8 +346,27 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                     )}
 
                                     <div className="relative z-10">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-[#0B1221]/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center bg-[#0B1221]/60 backdrop-blur-md rounded-full border border-white/10 overflow-hidden shadow-lg">
+                                                    <span className="text-sm font-bold text-white/90 px-3.5 py-1.5 border-r border-white/5">{event.time}</span>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const currentBuffer = event.parkingBuffer ?? 10;
+                                                            const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
+                                                            onBufferChange?.(event.id, nextBuffer);
+                                                        }}
+                                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-white/5 hover:text-white transition-all group/park"
+                                                        title="Adjust parking/buffer time"
+                                                    >
+                                                        <Car size={13} className="text-[#007AFF] opacity-80 group-hover/park:opacity-100 transition-opacity" />
+                                                        <span className="text-[11px] font-bold">
+                                                            {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </div>
                                             {event.status && event.status !== 'Scheduled' && (
                                                 <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
                                             )}

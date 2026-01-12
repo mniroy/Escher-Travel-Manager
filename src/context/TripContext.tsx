@@ -56,6 +56,12 @@ function dbEventToTimelineEvent(e: DbEvent): TimelineEvent {
         travelTime: e.travel_time || undefined,
         travelMode: e.travel_mode || undefined,
         dayOffset: e.day_offset,
+        // Location data for Routes API
+        placeId: (e as any).place_id || undefined,
+        lat: (e as any).lat || undefined,
+        lng: (e as any).lng || undefined,
+        address: (e as any).address || undefined,
+        congestion: (e as any).congestion || undefined,
     };
 }
 
@@ -79,7 +85,13 @@ function timelineEventToDbEvent(e: TimelineEvent, tripId: string, sortOrder: num
         travel_mode: e.travelMode || null,
         day_offset: e.dayOffset ?? 0,
         sort_order: sortOrder,
-    };
+        // Location data for Routes API
+        place_id: e.placeId || null,
+        lat: e.lat || null,
+        lng: e.lng || null,
+        address: e.address || null,
+        congestion: e.congestion || null,
+    } as any; // Cast to any since DbEvent type may not have these columns yet
 }
 
 export function TripProvider({ children }: { children: React.ReactNode }) {

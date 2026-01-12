@@ -146,7 +146,7 @@ export default async function handler(request: Request) {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': apiKey,
-                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri,places.reviews'
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri,places.reviews,places.location'
                 },
                 body: JSON.stringify(searchBody)
             });
@@ -168,6 +168,9 @@ export default async function handler(request: Request) {
                         rating: place.rating,
                         reviewCount: place.userRatingCount,
                         placeId: place.id,
+                        // Location coordinates for Routes API
+                        lat: place.location?.latitude,
+                        lng: place.location?.longitude,
                         types: place.types,
                         photos: photoUrls,
                         openingHours: place.regularOpeningHours?.weekdayDescriptions,
