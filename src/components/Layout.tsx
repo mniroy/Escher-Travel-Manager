@@ -1,6 +1,7 @@
 import React from 'react';
 import { BottomNavigation } from './BottomNavigation';
 import { SyncIndicator } from './SyncIndicator';
+import { Menu } from 'lucide-react';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -26,11 +27,26 @@ export function Layout({ children, showNav = true, fullScreen = false }: LayoutP
     }
 
     return (
-        <div className="min-h-screen pb-24 relative overflow-hidden bg-zinc-50">
-            {/* Sync Status Indicator */}
-            <div className="absolute top-4 right-4 z-50">
-                <SyncIndicator />
-            </div>
+        <div className="min-h-screen pb-24 relative overflow-hidden bg-zinc-50 font-sans">
+            {/* Header */}
+            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                    <button className="p-2 -ml-2 text-white rounded-full hover:bg-white/10 transition-colors">
+                        <Menu size={24} strokeWidth={2} />
+                    </button>
+                    {/* Sync Status Indicator (Next to menu) */}
+                    <SyncIndicator />
+                </div>
+
+                <div className="flex flex-col items-end">
+                    <h1 className="font-['Playfair_Display'] font-black text-2xl tracking-tight text-white leading-none drop-shadow-md">
+                        ESCHER
+                    </h1>
+                    <span className="text-[10px] font-bold tracking-widest text-white/80 uppercase drop-shadow-sm">
+                        Travel Manager
+                    </span>
+                </div>
+            </header>
 
             <main className="relative z-10 w-full md:max-w-5xl mx-auto min-h-screen shadow-2xl bg-zinc-50 shadow-zinc-200">
                 {children}
