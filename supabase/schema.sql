@@ -155,6 +155,21 @@ END;
 $$;
 
 -- ==============================================
+-- ENABLE STORAGE AND BUCKETS (Public)
+-- ==============================================
+-- 1. Create PUBLIC bucket 
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('trip_docs', 'trip_docs', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- 2. Allow Public Access (Read, Write, Delete)
+DROP POLICY IF EXISTS "Allow Public Access to trip_docs" ON storage.objects;
+CREATE POLICY "Allow Public Access to trip_docs" 
+ON storage.objects FOR ALL 
+USING ( bucket_id = 'trip_docs' ) 
+WITH CHECK ( bucket_id = 'trip_docs' );
+
+-- ==============================================
 -- INSERT DEFAULT DATA
 -- ==============================================
 -- Insert a default trip so the app has data on first load

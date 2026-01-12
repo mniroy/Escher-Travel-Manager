@@ -1,9 +1,11 @@
+
 import { Layout } from '../components/Layout';
-import { FileText, Plus, Tag, Upload, X, Check, Search, Download } from 'lucide-react';
+import { FileText, Plus, Tag, Upload, X, Check, Search, Download, Trash2 } from 'lucide-react'; // Added Trash2
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
 import { TimelineEvent } from '../components/TimelineItem';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { supabase } from '../lib/supabase'; // Import supabase
 
 type DocCategory = 'Transport' | 'Accommodation' | 'Identity' | 'Finance' | 'Other';
 
@@ -12,17 +14,8 @@ interface DocumentItem {
     title: string;
     date: string;
     size: string;
-}
-
-const MOCK_DOCS: DocumentItem[] = [];
-
-function determineCategory(title: string): DocCategory {
-    const lower = title.toLowerCase();
-    if (lower.includes('flight') || lower.includes('ticket') || lower.includes('train') || lower.includes('bus') || lower.includes('car') || lower.includes('transport')) return 'Transport';
-    if (lower.includes('hotel') || lower.includes('booking') || lower.includes('bnb') || lower.includes('stay')) return 'Accommodation';
-    if (lower.includes('passport') || lower.includes('visa') || lower.includes('id') || lower.includes('license')) return 'Identity';
-    if (lower.includes('insurance') || lower.includes('receipt') || lower.includes('invoice') || lower.includes('bill')) return 'Finance';
-    return 'Other';
+    category: DocCategory; // Added category
+    fileUrl?: string; // Added fileUrl
 }
 
 // Light mode colors
@@ -35,11 +28,12 @@ const CATEGORY_COLORS: Record<DocCategory, { iconBg: string, iconColor: string, 
 };
 
 export default function DocumentsPage() {
-    const { setEvents } = useTrip();
+    const { currentTripId, setEvents } = useTrip(); // Corrected context usage
     const [sortMode, setSortMode] = useState<'date' | 'category'>('date');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [localDocs, setLocalDocs] = useState(MOCK_DOCS);
+    const [localDocs, setLocalDocs] = useState<DocumentItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,15 +41,33 @@ export default function DocumentsPage() {
     const bgY = useTransform(scrollY, [0, 500], ['0%', '-15%']);
     const bgOpacity = useTransform(scrollY, [0, 300], [1, 0.3]);
 
-    const processedDocs = useMemo(() => {
-        return localDocs.map(doc => ({
-            ...doc,
-            category: determineCategory(doc.title)
-        }));
-    }, [localDocs]);
+    // Fetch documents on load
+    useEffect(() => {
+        if (!currentTripId) return;
+
+        console.log('Fetching documents for trip:', currentTripId);
+        fetch(`/api/documents?tripId=${currentTripId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const formatted = data.map((d: any) => ({
+                        id: d.id,
+                        title: d.title,
+                        date: new Date(d.created_at).toLocaleDateString(),
+                        size: d.size || '?',
+                        category: d.category,
+                        fileUrl: d.file_url
+                    }));
+                    setLocalDocs(formatted);
+                } else {
+                    console.error('API returned non-array:', data);
+                }
+            })
+            .catch(err => console.error('Failed to fetch docs:', err));
+    }, [currentTripId]);
 
     const filteredDocs = useMemo(() => {
-        let docs = [...processedDocs];
+        let docs = [...localDocs];
 
         if (searchQuery) {
             const result = searchQuery.toLowerCase();
@@ -64,47 +76,120 @@ export default function DocumentsPage() {
 
         if (sortMode === 'category') {
             docs.sort((a, b) => a.category.localeCompare(b.category));
+        } else {
+            // Default to date sort (newest first)
+            // Assuming date string is parseable, or we can use id if chronological
+            docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         }
         return docs;
-    }, [processedDocs, sortMode, searchQuery]);
+    }, [localDocs, sortMode, searchQuery]);
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !currentTripId) return;
 
-        setTimeout(() => {
-            const newDoc: DocumentItem = {
-                id: Date.now().toString(),
-                title: file.name,
-                date: 'Just now',
-                size: `${(file.size / 1024 / 1024).toFixed(1)} MB`
-            };
+        setIsUploading(true);
+        try {
+            // 1. Upload to Supabase Storage
+            const fileName = `${currentTripId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize filename
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('trip_docs')
+                .upload(fileName, file);
 
-            setLocalDocs(prev => [newDoc, ...prev]);
-            setToastMessage(`Uploaded ${file.name}`);
+            if (uploadError) throw uploadError;
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('trip_docs')
+                .getPublicUrl(fileName);
+
+            // 2. Call API to Analyze & Save DB Record
+            const res = await fetch('/api/process-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tripId: currentTripId,
+                    fileUrl: publicUrl,
+                    fileName: file.name,
+                    fileType: file.type
+                })
+            });
+
+            if (!res.ok) throw new Error('Processing failed');
+
+            const result = await res.json();
+            const newDoc = result.document;
+
+            // 3. Update UI
+            setLocalDocs(prev => [{
+                id: newDoc.id,
+                title: newDoc.title,
+                date: new Date().toLocaleDateString(), // Use current date for immediate feedback
+                size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+                category: newDoc.category,
+                fileUrl: newDoc.file_url
+            }, ...prev]);
+
+            setToastMessage(`Uploaded & Analyzed ${file.name}`);
             setTimeout(() => setToastMessage(null), 3000);
             setIsUploadOpen(false);
 
-            if (file.name.toLowerCase().includes('boarding pass')) {
-                const newFlightEvent: TimelineEvent = {
-                    id: Date.now().toString() + '_flight',
-                    type: 'Transport',
-                    title: 'Flight from Uploaded Pass',
-                    time: '10:00 AM',
-                    endTime: '01:00 PM',
-                    description: 'Auto-imported from ' + file.name + '. Seat 12A, Gate D4.',
-                    dayOffset: 0,
-                    duration: '3h',
-                    status: 'Scheduled'
-                };
-                setEvents(prev => [...prev, newFlightEvent]);
+            // Notify if Event was created
+            if (result.event) {
+                // Add event to context state immediately to reflect in Itinerary
+                // Note: db trigger or refresh might be cleaner, but manual add is faster feedback
+                setEvents(prev => [...prev, {
+                    id: result.event.id,
+                    type: result.event.type,
+                    title: result.event.title,
+                    time: result.event.time,
+                    // ... map other fields if necessary
+                    // For simply showing it appeared, this is enough for now, 
+                    // or let TripContext refresh handle it if we call refreshData()
+                } as any]);
 
                 setTimeout(() => {
                     setToastMessage('Flight info added to Itinerary!');
                     setTimeout(() => setToastMessage(null), 4000);
                 }, 1000);
             }
-        }, 1500);
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Upload failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+        }
+    };
+
+    const handleDelete = async (docId: string, fileUrl?: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation(); // Prevent opening document when clicking delete
+
+        if (!confirm('Delete this document?')) return;
+
+        // Optimistic UI update
+        const prevDocs = [...localDocs];
+        setLocalDocs(prev => prev.filter(d => d.id !== docId));
+
+        try {
+            const res = await fetch('/api/delete-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documentId: docId, fileUrl })
+            });
+            if (!res.ok) throw new Error('Delete API failed');
+            setToastMessage('Document deleted');
+            setTimeout(() => setToastMessage(null), 2000);
+        } catch (err) {
+            console.error('Delete failed', err);
+            setLocalDocs(prevDocs); // Revert
+            alert('Failed to delete document');
+        }
+    };
+
+    const handleOpenDocument = (url?: string) => {
+        if (url) window.open(url, '_blank');
     };
 
     return (
@@ -175,7 +260,7 @@ export default function DocumentsPage() {
                             <AnimatePresence>
                                 {filteredDocs.map((doc, index) => {
                                     const showHeader = sortMode === 'category' && (index === 0 || filteredDocs[index - 1].category !== doc.category);
-                                    const colors = CATEGORY_COLORS[doc.category];
+                                    const colors = CATEGORY_COLORS[doc.category] || CATEGORY_COLORS['Other'];
 
                                     return (
                                         <div key={doc.id}>
@@ -192,6 +277,7 @@ export default function DocumentsPage() {
                                                 layout
                                                 initial={{ opacity: 0, scale: 0.95 }}
                                                 animate={{ opacity: 1, scale: 1 }}
+                                                onClick={() => handleOpenDocument(doc.fileUrl)}
                                                 className="bg-white border border-zinc-100 rounded-2xl p-4 flex items-center gap-4 hover:shadow-lg hover:shadow-zinc-200/50 hover:border-blue-100 transition-all cursor-pointer group active:scale-[0.99]"
                                             >
                                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${colors.iconBg} ${colors.iconColor}`}>
@@ -206,8 +292,14 @@ export default function DocumentsPage() {
                                                         <span className="text-[10px] text-zinc-400 font-medium">{doc.date} • {doc.size}</span>
                                                     </div>
                                                 </div>
-                                                <button className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors">
-                                                    <Download size={14} />
+
+                                                {/* Delete Button */}
+                                                <button
+                                                    onClick={(e) => handleDelete(doc.id, doc.fileUrl, e)}
+                                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition-colors z-10"
+                                                    title="Delete document"
+                                                >
+                                                    <Trash2 size={14} />
                                                 </button>
                                             </motion.div>
                                         </div>
@@ -215,7 +307,7 @@ export default function DocumentsPage() {
                                 })}
                             </AnimatePresence>
 
-                            {!localDocs.length && (
+                            {!localDocs.length && !isUploading && (
                                 <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
                                     <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mb-4">
                                         <FileText className="text-zinc-300" size={24} />
@@ -238,7 +330,7 @@ export default function DocumentsPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsUploadOpen(false)}
+                            onClick={() => !isUploading && setIsUploadOpen(false)}
                         />
 
                         <motion.div
@@ -249,18 +341,21 @@ export default function DocumentsPage() {
                         >
                             <button
                                 onClick={() => setIsUploadOpen(false)}
-                                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 transition-colors"
+                                disabled={isUploading}
+                                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50"
                             >
                                 <X size={20} />
                             </button>
 
                             <div className="flex flex-col items-center justify-center text-center py-8">
-                                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-[#007AFF] mb-6 shadow-sm">
-                                    <Upload size={32} />
+                                <div className={`w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-[#007AFF] mb-6 shadow-sm ${isUploading ? 'animate-pulse' : ''}`}>
+                                    {isUploading ? <Upload size={32} className="animate-bounce" /> : <Upload size={32} />}
                                 </div>
-                                <h3 className="text-xl font-bold text-zinc-900 mb-2">Upload Document</h3>
+                                <h3 className="text-xl font-bold text-zinc-900 mb-2">
+                                    {isUploading ? 'Analyzing...' : 'Upload Document'}
+                                </h3>
                                 <p className="text-zinc-500 text-sm mb-8 leading-relaxed px-4">
-                                    Select a PDF or image. We'll automatically categorize it for you.
+                                    {isUploading ? 'Gemini is processing your file...' : "Select a PDF or image. We'll automatically categorize it for you."}
                                 </p>
 
                                 <input
@@ -268,12 +363,14 @@ export default function DocumentsPage() {
                                     type="file"
                                     className="hidden"
                                     onChange={handleFileUpload}
+                                    disabled={isUploading}
                                 />
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98]"
+                                    disabled={isUploading}
+                                    className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
-                                    Select File
+                                    {isUploading ? 'Please Wait' : 'Select File'}
                                 </button>
                             </div>
                         </motion.div>
