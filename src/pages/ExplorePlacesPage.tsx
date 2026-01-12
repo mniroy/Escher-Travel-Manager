@@ -161,7 +161,7 @@ export default function ExplorePlacesPage() {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search e.g. 'Best Ramen in Tokyo'"
-                            className="w-full bg-white border border-zinc-100 rounded-2xl py-4 pl-12 pr-4 text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-4 focus:ring-blue-50/50 placeholder:text-zinc-400 font-medium transition-all"
+                            className="w-full bg-white border border-zinc-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-4 focus:ring-blue-50/50 placeholder:text-zinc-400 font-medium transition-all"
                         />
                         <button
                             type="submit"

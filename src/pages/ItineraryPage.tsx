@@ -724,9 +724,16 @@ export default function ItineraryPage() {
                                 className="absolute inset-0 w-full h-full object-cover"
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                                <h3 className="text-zinc-700 font-bold text-xl tracking-[0.2em] animate-pulse">waiting for your plan...</h3>
-                            </div>
+                            <motion.img
+                                key="default-bali"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.5 }}
+                                src="https://images.unsplash.com/photo-1512100356356-de1b84283e18?auto=format&fit=crop&w=1920&q=80"
+                                alt="Bali Landscape"
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
                         )}
                     </AnimatePresence>
                 </motion.div>

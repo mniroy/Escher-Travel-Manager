@@ -81,7 +81,7 @@ export default function PlacesPage() {
     const uniquePlacesMap = new Map<string, TimelineEvent>();
 
     events
-        .filter(e => ['Stay', 'Eat', 'Play'].includes(e.type))
+        .filter(e => ['Stay', 'Eat', 'Play'].includes(e.type) && e.status === 'Saved')
         .forEach(e => {
             // Create a unique key for the place
             // prioritization: placeId > googleMapsLink > title
@@ -219,12 +219,10 @@ export default function PlacesPage() {
                                                                 deleteEvent(place.id);
                                                             }
                                                         }}
-                                                        className="absolute top-0 right-0 w-14 h-14 flex items-start justify-end transition-all z-20 group/delete hover:scale-105"
+                                                        className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 shadow-sm z-20 hover:bg-red-500/80 transition-all active:scale-95"
                                                         title="Delete from library"
                                                     >
-                                                        {/* The Peel Background */}
-                                                        <div className="absolute top-0 right-0 w-full h-full bg-white/10 backdrop-blur-sm group-hover/delete:bg-red-500/20 transition-all [clip-path:polygon(0_0,100%_0,100%_100%)] border-l border-b border-white/10 shadow-sm" />
-                                                        <Trash2 size={15} className="mt-3 mr-3 text-white/50 group-hover/delete:text-red-400 transition-all transform group-hover/delete:scale-110" />
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
 
