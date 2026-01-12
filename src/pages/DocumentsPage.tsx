@@ -27,13 +27,15 @@ const CATEGORY_COLORS: Record<DocCategory, { iconBg: string, iconColor: string, 
 };
 
 export default function DocumentsPage() {
-    const { currentTripId, setEvents } = useTrip(); // Corrected context usage
+    const { currentTripId } = useTrip();
     const [sortMode, setSortMode] = useState<'date' | 'category'>('date');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [localDocs, setLocalDocs] = useState<DocumentItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<DocCategory>('Other');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { scrollY } = useScroll();
@@ -83,17 +85,23 @@ export default function DocumentsPage() {
         return docs;
     }, [localDocs, sortMode, searchQuery]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !currentTripId) return;
+        if (file) {
+            setSelectedFile(file);
+        }
+    };
+
+    const submitUpload = async () => {
+        if (!selectedFile || !currentTripId) return;
 
         setIsUploading(true);
         try {
             // 1. Upload to Supabase Storage
-            const fileName = `${currentTripId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize filename
+            const fileName = `${currentTripId}/${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize filename
             const { error: uploadError } = await supabase.storage
                 .from('trip_docs')
-                .upload(fileName, file);
+                .upload(fileName, selectedFile);
 
             if (uploadError) throw uploadError;
 
@@ -109,8 +117,9 @@ export default function DocumentsPage() {
                 body: JSON.stringify({
                     tripId: currentTripId,
                     fileUrl: publicUrl,
-                    fileName: file.name,
-                    fileType: file.type
+                    fileName: selectedFile.name,
+                    fileType: selectedFile.type,
+                    category: selectedCategory // Pass selected category
                 })
             });
 
@@ -123,35 +132,19 @@ export default function DocumentsPage() {
             setLocalDocs(prev => [{
                 id: newDoc.id,
                 title: newDoc.title,
-                date: new Date().toLocaleDateString(), // Use current date for immediate feedback
-                size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+                date: new Date().toLocaleDateString(),
+                size: `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`,
                 category: newDoc.category,
                 fileUrl: newDoc.file_url
             }, ...prev]);
 
-            setToastMessage(`Uploaded & Analyzed ${file.name}`);
+            setToastMessage(`Uploaded ${selectedFile.name}`);
             setTimeout(() => setToastMessage(null), 3000);
+
+            // Allow another upload
+            setSelectedFile(null);
+            setSelectedCategory('Other');
             setIsUploadOpen(false);
-
-            // Notify if Event was created
-            if (result.event) {
-                // Add event to context state immediately to reflect in Itinerary
-                // Note: db trigger or refresh might be cleaner, but manual add is faster feedback
-                setEvents(prev => [...prev, {
-                    id: result.event.id,
-                    type: result.event.type,
-                    title: result.event.title,
-                    time: result.event.time,
-                    // ... map other fields if necessary
-                    // For simply showing it appeared, this is enough for now, 
-                    // or let TripContext refresh handle it if we call refreshData()
-                } as any]);
-
-                setTimeout(() => {
-                    setToastMessage('Flight info added to Itinerary!');
-                    setTimeout(() => setToastMessage(null), 4000);
-                }, 1000);
-            }
 
         } catch (error) {
             console.error('Upload error:', error);
@@ -329,7 +322,7 @@ export default function DocumentsPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => !isUploading && setIsUploadOpen(false)}
+                            onClick={() => !isUploading && (setIsUploadOpen(false), setSelectedFile(null))}
                         />
 
                         <motion.div
@@ -339,7 +332,7 @@ export default function DocumentsPage() {
                             className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl relative z-10 overflow-hidden"
                         >
                             <button
-                                onClick={() => setIsUploadOpen(false)}
+                                onClick={() => { setIsUploadOpen(false); setSelectedFile(null); }}
                                 disabled={isUploading}
                                 className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50"
                             >
@@ -353,24 +346,74 @@ export default function DocumentsPage() {
                                 <h3 className="text-xl font-bold text-zinc-900 mb-2">
                                     {isUploading ? 'Analyzing...' : 'Upload Document'}
                                 </h3>
-                                <p className="text-zinc-500 text-sm mb-8 leading-relaxed px-4">
-                                    {isUploading ? 'Gemini is processing your file...' : "Select a PDF or image. We'll automatically categorize it for you."}
+                                <p className="text-zinc-500 text-sm mb-6 leading-relaxed px-4">
+                                    {isUploading ? 'Saving your document...' : (selectedFile ? 'Choose a category for your document.' : "Select a PDF or image.")}
                                 </p>
 
+                                <div className="w-full">
+                                    {!selectedFile ? (
+                                        <>
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploading}
+                                                className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mb-4"
+                                            >
+                                                Select File
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                                                    <FileText size={20} />
+                                                </div>
+                                                <div className="flex-1 min-w-0 text-left">
+                                                    <p className="font-bold text-sm text-zinc-900 truncate">{selectedFile.name}</p>
+                                                    <p className="text-xs text-zinc-500">{(selectedFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedFile(null)}
+                                                    className="p-2 text-zinc-400 hover:text-red-500"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+
+                                            <div className="text-left">
+                                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block ml-1">Select Category</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {(Object.keys(CATEGORY_COLORS) as DocCategory[]).map(cat => (
+                                                        <button
+                                                            key={cat}
+                                                            onClick={() => setSelectedCategory(cat)}
+                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${selectedCategory === cat
+                                                                ? 'bg-zinc-900 text-white border-zinc-900 shadow-md transform scale-105'
+                                                                : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
+                                                                }`}
+                                                        >
+                                                            {cat}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={submitUpload}
+                                                disabled={isUploading}
+                                                className="w-full py-4 mt-2 rounded-xl bg-black text-white font-bold hover:bg-zinc-800 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70"
+                                            >
+                                                {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
                                     className="hidden"
-                                    onChange={handleFileUpload}
+                                    onChange={onFileSelect}
                                     disabled={isUploading}
                                 />
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isUploading}
-                                    className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
-                                >
-                                    {isUploading ? 'Please Wait' : 'Select File'}
-                                </button>
                             </div>
                         </motion.div>
                     </div>

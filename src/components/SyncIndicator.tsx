@@ -48,6 +48,11 @@ export function SyncIndicator() {
 
     const status = getStatusContent();
 
+    // Hide "Synced" badge as requested
+    if (status.text === 'Synced') {
+        return null;
+    }
+
     return (
         <AnimatePresence mode="wait">
             <motion.button
