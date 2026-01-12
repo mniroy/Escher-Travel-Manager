@@ -1,6 +1,6 @@
 import { Layout } from '../components/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, Utensils, MessageSquare, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, Utensils, MessageSquare, X, Ticket } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTrip } from '../context/TripContext';
@@ -9,7 +9,7 @@ export default function PlaceDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { events } = useTrip();
-    const [activeTab, setActiveTab] = useState<'photos' | 'reviews' | 'menu'>('photos');
+    const [activeTab, setActiveTab] = useState<'photos' | 'hours' | 'tickets' | 'reviews'>('photos');
     const [fetchedPlace, setFetchedPlace] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -100,10 +100,35 @@ export default function PlaceDetailPage() {
         images: (fetchedPlace?.photoUrls && fetchedPlace.photoUrls.length > 0) ? fetchedPlace.photoUrls : (fetchedPlace?.photos?.filter((p: string) => typeof p === 'string') || initialPlace.images),
         userReviews: fetchedPlace?.reviews || [], // Google reviews format
         googleMapsLink: fetchedPlace?.googleMapsUri || fetchedPlace?.googleMapsUrl || initialPlace.googleMapsLink,
-        menu: [] // API doesn't provide menu usually
+        menus: [], // API doesn't provide menu usually
+        openingHours: fetchedPlace?.openingHours || fetchedPlace?.regularOpeningHours?.weekdayDescriptions || [],
+        websiteUri: fetchedPlace?.websiteUri || null,
+        priceLevel: fetchedPlace?.priceLevel || null,
+        editorialSummary: fetchedPlace?.editorialSummary || null,
+        types: fetchedPlace?.types || []
     };
 
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+    // Helper to format price level
+    const formatPriceLevel = (level: string | null) => {
+        if (!level) return null;
+        const map: Record<string, string> = {
+            'PRICE_LEVEL_FREE': 'Free',
+            'PRICE_LEVEL_INEXPENSIVE': '$',
+            'PRICE_LEVEL_MODERATE': '$$',
+            'PRICE_LEVEL_EXPENSIVE': '$$$',
+            'PRICE_LEVEL_VERY_EXPENSIVE': '$$$$'
+        };
+        return map[level] || level;
+    };
+
+    const formattedPrice = formatPriceLevel(display.priceLevel);
+
+    // Helper to check if place is dining related
+    const isDining = display.types.some((t: string) =>
+        ['restaurant', 'cafe', 'bar', 'bakery', 'meal_takeaway', 'meal_delivery', 'food'].includes(t)
+    );
 
     return (
         <Layout showNav={false}>
@@ -176,11 +201,13 @@ export default function PlaceDetailPage() {
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-6 mb-6 border-b border-zinc-200 px-2 overflow-x-auto no-scrollbar">
+                <div className="flex gap-6 mb-6 border-b border-zinc-200 px-2 overflow-x-auto no-scrollbar justify-center">
                     <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<ImageIcon size={18} />} label="Photos" />
+                    {display.openingHours.length > 0 && <TabButton active={activeTab === 'hours'} onClick={() => setActiveTab('hours')} icon={<Clock size={18} />} label="Hours" />}
+
+                    {!isDining && display.priceLevel && <TabButton active={activeTab === 'tickets'} onClick={() => setActiveTab('tickets')} icon={<Ticket size={18} />} label={formattedPrice ? `Tickets (${formattedPrice})` : "Ticket Info"} />}
+
                     <TabButton active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} icon={<MessageSquare size={18} />} label="Reviews" />
-                    {display.menu.length > 0 && <TabButton active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} icon={<Utensils size={18} />} label="Menu" />}
                 </div>
 
                 {/* Tab Content */}
@@ -208,6 +235,63 @@ export default function PlaceDetailPage() {
                                     No photos available
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {!loading && activeTab === 'hours' && (
+                        <div className="px-2 animate-in fade-in duration-500">
+                            <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100">
+                                <div className="space-y-2">
+                                    {display.openingHours.map((line: string, i: number) => {
+                                        const todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+                                        const isToday = i === todayIndex;
+                                        const [day, time] = line.split(': ');
+                                        return (
+                                            <div key={i} className={`flex justify-between text-xs ${isToday ? 'font-bold text-zinc-900 bg-white p-2 -mx-2 rounded-lg shadow-sm border border-zinc-100' : 'text-zinc-600'}`}>
+                                                <span>{day}</span>
+                                                <span>{time}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!loading && activeTab === 'tickets' && (
+                        <div className="px-2 animate-in fade-in duration-500">
+                            <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+                                <h3 className="font-bold text-zinc-900 mb-1">Admission</h3>
+                                {display.editorialSummary && (
+                                    <p className="text-xs text-zinc-500 mb-4 leading-relaxed">{display.editorialSummary}</p>
+                                )}
+                                <p className="text-xs text-zinc-400 mb-6">Gives you entry to this place</p>
+
+                                <div className="space-y-3">
+                                    {display.websiteUri && (
+                                        <a
+                                            href={display.websiteUri}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between group py-1"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-blue-50 text-[#007AFF] flex items-center justify-center">
+                                                    <Ticket size={16} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm text-zinc-900 group-hover:text-[#007AFF] transition-colors">Official Site</span>
+                                                    <span className="text-[10px] text-zinc-400 font-medium">Instant confirmation</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {formattedPrice && <span className="text-sm font-bold text-zinc-900">{formattedPrice}</span>}
+                                                <ArrowRight size={14} className="text-zinc-300 group-hover:text-[#007AFF] transition-colors" />
+                                            </div>
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 

@@ -32,6 +32,7 @@ export interface TimelineEvent {
     travelTime?: string;
     travelMode?: 'drive' | 'walk' | 'transit';
     dayOffset: number;
+    congestion?: string;
     createdAt: string;
     updatedAt: string;
 }

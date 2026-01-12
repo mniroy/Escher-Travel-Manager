@@ -5,7 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { items, preserveOrder = false } = req.body;
+    const { items, preserveOrder = false, fixEnd = false } = req.body;
 
     if (!items || !Array.isArray(items) || items.length < 2) {
         return res.status(400).json({ error: 'At least 2 items are required to optimize a route.' });
@@ -30,27 +30,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Construct Payload for Google Routes API
         // https://developers.google.com/maps/documentation/routes/compute_routes_reference
 
-        const origin = items[0];
-        const destination = items[items.length - 1]; // Keep start and end fixed? 
-        // User usually wants to start at A and end at B?
-        // Or Start at A, optimize B, C, D, E... ?
-        // If the user presses "Optimize", usually they want the most efficient path VISITING all selected nodes.
-        // If the list is: Hotel -> Beach -> Dinner -> Club -> Hotel.
-        // We probably want to keep Origin (Hotel) and Destination (Hotel) fixed, and shuffle intermediates.
+        let origin, destination, pool;
 
-        // Let's assume the first item is FIXED (Origin). 
-        // The rest are intermediates to be optimized.
-        // The last item: If it's the same as first (round trip), it's fixed destination.
-        // If it's different, do we optimize it too?
-        // Google Routes API 'optimizeWaypointOrder' optimizes the `intermediates`.
-        // Origin and Destination are fixed points.
-
-        // STRATEGY: 
-        // Origin = Item[0]
-        // Destination = Item[last]
-        // Intermediates = Item[1... last-1]
-
-        // If only 2 items, nothing to optimize.
+        if (fixEnd) {
+            // Linear Optimization: Start -> [Pool] -> End
+            // Origin = First item
+            // Destination = Last item
+            // Pool = Middle items (everything else)
+            origin = items[0];
+            destination = items[items.length - 1];
+            pool = items.slice(1, -1);
+            console.log('[DEBUG] Optimization Mode: LINEAR (Fixed Start & End)');
+        } else {
+            // Loop Optimization: Start -> [Pool] -> Start
+            // Origin = First item
+            // Destination = First item (Loop back)
+            // Pool = All items except first
+            origin = items[0];
+            destination = items[0];
+            pool = items.slice(1);
+            console.log('[DEBUG] Optimization Mode: LOOP (Round Trip)');
+        }
 
         // Build waypoint with correct structure for Google Routes API
         // Structure: { location: { latLng: {...} } } OR { placeId: "..." }
@@ -71,11 +71,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return null;
         };
 
-        const intermediates = items.slice(1, items.length - 1)
+        const intermediates = pool
             .map(buildWaypoint)
             .filter(Boolean);
 
         const originLoc = buildWaypoint(origin);
+        // Destination is same as origin
         const destLoc = buildWaypoint(destination);
 
         if (!originLoc || !destLoc) {
@@ -96,7 +97,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 travelMode: 'DRIVE', // Configurable? Default to DRIVE for now.
                 routingPreference: 'TRAFFIC_AWARE',
                 optimizeWaypointOrder: !preserveOrder,
-                departureTime: new Date().toISOString(),
+                // Google Routes API requires departureTime to be in the future for TRAFFIC_AWARE.
+                // We add a 5-minute buffer to account for any server clock drift.
+                departureTime: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
             })
         });
 

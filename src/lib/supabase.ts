@@ -55,6 +55,14 @@ export interface DbEvent {
     travel_mode: 'drive' | 'walk' | 'transit' | null;
     day_offset: number;
     sort_order: number;
+    congestion: string | null;
+    place_id: string | null;
+    lat: number | null;
+    lng: number | null;
+    address: string | null;
+    opening_hours: string[] | null;
+    is_start?: boolean | null;
+    is_end?: boolean | null;
     created_at: string;
     updated_at: string;
 }

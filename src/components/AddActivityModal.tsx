@@ -9,7 +9,7 @@ export type EventCategory = 'Transport' | 'Stay' | 'Eat' | 'Play';
 interface AddActivityModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (activity: NewActivity) => void | boolean;
+    onSave: (activity: NewActivity) => void | boolean | Promise<void | boolean>;
     initialData?: TimelineEvent | null;
     hideDuration?: boolean;
 }
@@ -29,6 +29,7 @@ export interface NewActivity {
     lat?: number;
     lng?: number;
     address?: string;
+    openingHours?: string[];
 }
 
 export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDuration = false }: AddActivityModalProps) {
@@ -79,7 +80,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                     googleMapsLink: initialData.googleMapsLink || '',
                     rating: initialData.rating,
                     duration: initialData.duration,
-                    placeId: initialData.placeId
+                    placeId: initialData.placeId,
+                    openingHours: initialData.openingHours
                 });
                 setLink(initialData.googleMapsLink || '');
                 setDurationMinutes(parseDurationToMinutes(initialData.duration));
@@ -122,6 +124,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
             }
 
             const place = result.data;
+            console.log('DEBUG: API result:', place);
+            console.log('DEBUG: openingHours:', place.openingHours);
 
             setFormData(prev => ({
                 ...prev,
@@ -135,7 +139,8 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                 placeId: place.placeId, // Save the place ID
                 lat: place.lat,         // Save coordinates for Routes API
                 lng: place.lng,
-                address: place.address
+                address: place.address,
+                openingHours: place.openingHours
             }));
 
             setStep('PREVIEW');
@@ -146,15 +151,17 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
         }
     };
 
-    const handleConfirm = () => {
-        const result = onSave({
+    const handleConfirm = async () => {
+        console.log('!!! [AddActivityModal] Confirming with:', formData.openingHours);
+        const result = await onSave({
             ...formData,
             googleMapsLink: link,
             duration: formatMinutesToDuration(durationMinutes),
             placeId: formData.placeId,
             lat: formData.lat,
             lng: formData.lng,
-            address: formData.address
+            address: formData.address,
+            openingHours: formData.openingHours
         });
 
         // If onSave returns explicitly false, do not close the modal

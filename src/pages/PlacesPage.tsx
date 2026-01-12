@@ -77,9 +77,21 @@ export default function PlacesPage() {
         setIsAddModalOpen(false);
     };
 
-    // Filter "Places" (Events that are locations) and matches search
-    const filteredPlaces = events
+    // Filter "Places" (Events that are locations) and deduplicate
+    const uniquePlacesMap = new Map<string, TimelineEvent>();
+
+    events
         .filter(e => ['Stay', 'Eat', 'Play'].includes(e.type))
+        .forEach(e => {
+            // Create a unique key for the place
+            // prioritization: placeId > googleMapsLink > title
+            const key = e.placeId || e.googleMapsLink || e.title;
+            if (key && !uniquePlacesMap.has(key)) {
+                uniquePlacesMap.set(key, e);
+            }
+        });
+
+    const filteredPlaces = Array.from(uniquePlacesMap.values())
         .filter(e => {
             if (selectedCategory !== 'All' && e.type !== selectedCategory) return false;
 
@@ -143,6 +155,13 @@ export default function PlacesPage() {
                                         <span>Add New</span>
                                     </button>
                                 </div>
+
+                                <Link
+                                    to="/places/explore"
+                                    className="block mt-2 bg-white border border-zinc-100 py-3 rounded-2xl text-center text-sm font-bold text-[#007AFF] shadow-sm hover:bg-zinc-50 transition-colors"
+                                >
+                                    ✨ Explore Recommendations
+                                </Link>
 
                                 <div>
                                     <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />

@@ -4,6 +4,7 @@ import ItineraryPage from './pages/ItineraryPage';
 import PlaceDetailPage from './pages/PlaceDetailPage';
 import MapPage from './pages/MapPage';
 import PlacesPage from './pages/PlacesPage';
+import ExplorePlacesPage from './pages/ExplorePlacesPage';
 import DocumentsPage from './pages/DocumentsPage';
 
 function AppContent() {
@@ -27,6 +28,7 @@ function AppContent() {
                 <Route path="/place/:id" element={<PlaceDetailPage />} />
                 <Route path="/map" element={<MapPage />} />
                 <Route path="/places" element={<PlacesPage />} />
+                <Route path="/places/explore" element={<ExplorePlacesPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="*" element={<ItineraryPage />} />
             </Routes>

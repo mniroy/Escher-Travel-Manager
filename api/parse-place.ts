@@ -146,7 +146,7 @@ export default async function handler(request: Request) {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': apiKey,
-                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri,places.reviews,places.location'
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.photos,places.regularOpeningHours,places.googleMapsUri,places.reviews,places.location,places.websiteUri,places.priceLevel,places.editorialSummary'
                 },
                 body: JSON.stringify(searchBody)
             });
@@ -177,6 +177,9 @@ export default async function handler(request: Request) {
                         isOpen: place.regularOpeningHours?.openNow,
                         googleMapsUrl: place.googleMapsUri || url,
                         reviews: place.reviews?.slice(0, 3),
+                        websiteUri: place.websiteUri,
+                        priceLevel: place.priceLevel,
+                        editorialSummary: place.editorialSummary?.text,
                         source: 'google_places'
                     };
 

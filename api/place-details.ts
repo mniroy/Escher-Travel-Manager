@@ -28,6 +28,7 @@ interface PlaceDetails {
         authorAttribution: { displayName: string; photoUri: string };
         relativePublishTimeDescription: string;
     }[];
+    editorialSummary?: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -74,7 +75,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'priceLevel',
             'location',
             'googleMapsUri',
-            'reviews'
+            'reviews',
+            'editorialSummary'
         ].join(',');
 
         const response = await fetch(url, {
@@ -119,7 +121,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             priceLevel: data.priceLevel,
             location: data.location,
             googleMapsUri: data.googleMapsUri,
-            reviews: data.reviews
+            reviews: data.reviews,
+            editorialSummary: data.editorialSummary?.text
         };
 
         // Add photo URLs for easy access

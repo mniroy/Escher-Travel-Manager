@@ -1,6 +1,52 @@
-import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin } from 'lucide-react';
+import { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { TimePicker } from './TimePicker';
+
+// Helper: Parse hours from "9:00 AM – 5:00 PM" string
+const parseTimeStr = (t: string) => {
+    try {
+        const [time, period] = t.trim().split(' ');
+        let [h, m] = time.split(':').map(Number);
+        if (period === 'PM' && h !== 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        return h * 60 + m;
+    } catch { return 0; }
+};
+
+const getTodayHours = (hours: string[] | undefined) => {
+    if (!hours || !Array.isArray(hours) || hours.length === 0) return null;
+    // Just pick the first one for now as we don't have day context easily
+    // In a real app we'd match the specific date
+    const todayStr = hours.find(h => !h.includes("Closed")) || hours[0];
+    if (!todayStr) return null;
+
+    // Extract "9:00 AM – 5:00 PM"
+    // Google format: "Monday: 9:00 AM – 5:00 PM"
+    const match = todayStr.match(/(\d{1,2}:\d{2}\s[AP]M)\s–\s(\d{1,2}:\d{2}\s[AP]M)/);
+    if (match) {
+        return {
+            text: todayStr, // Show full string e.g. "Monday: ..."
+            open: parseTimeStr(match[1]),
+            close: parseTimeStr(match[2])
+        };
+    }
+    return { text: todayStr, open: 0, close: 24 * 60 }; // Fallback
+};
+
+const getTimeColor = (eventTime: string, open: number, close: number) => {
+    const time = parseTimeStr(eventTime);
+    if (!time) return 'text-white/90'; // Default
+
+    // Check if Closed
+    if (time < open || time > close) return 'text-red-400';
+
+    // Check if Closing Soon (within 60 mins)
+    if (close - time <= 60 && close - time > 0) return 'text-yellow-400';
+
+    return 'text-white/90';
+};
 
 export interface TimelineEvent {
     id: string;
@@ -36,6 +82,8 @@ export interface TimelineEvent {
     congestion?: 'low' | 'moderate' | 'high';
     travelDistance?: string;
     parkingBuffer?: number; // in minutes, default 10
+    isStart?: boolean;
+    isEnd?: boolean;
 }
 
 interface TimelineItemProps {
@@ -53,6 +101,7 @@ interface TimelineItemProps {
 }
 
 export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange }: TimelineItemProps) {
+    const [showTimePicker, setShowTimePicker] = useState(false);
     const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
     const isCheckedIn = event.status === 'Checked In';
@@ -92,6 +141,10 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
         }
     }
 
+    // Opening Hours Logic
+    const todayHours = getTodayHours(event.openingHours);
+    const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close) : 'text-white/90';
+
     return (
         <div className="flex flex-col items-center relative group pb-4 w-full">
 
@@ -112,17 +165,26 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                             <div className="flex items-center justify-center relative z-30 group/start">
                                 <div className="bg-white border-2 border-blue-200 rounded-full flex items-center shadow-xl z-20 overflow-hidden">
                                     {/* Area 1: Time Setting (Click to open picker) */}
-                                    <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer">
+                                    <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer"
+                                        onClick={() => setShowTimePicker(true)}
+                                    >
                                         <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
                                         <span className="text-[12px] text-[#007AFF] font-black uppercase tracking-widest flex items-center gap-1.5">
                                             {event.time}
                                             <Pencil size={10} className="opacity-40" />
                                         </span>
-                                        <input
-                                            type="time"
-                                            className="absolute inset-0 opacity-0 cursor-pointer z-30"
-                                            onChange={(e) => onTimeChange?.(event.id, e.target.value)}
-                                        />
+                                        <AnimatePresence>
+                                            {showTimePicker && (
+                                                <TimePicker
+                                                    initialTime={event.time}
+                                                    onSave={(newTime) => {
+                                                        onTimeChange?.(event.id, newTime);
+                                                        setShowTimePicker(false);
+                                                    }}
+                                                    onClose={() => setShowTimePicker(false)}
+                                                />
+                                            )}
+                                        </AnimatePresence>
                                     </div>
 
                                     {/* Area 2: 'Now' Button (Instant update) */}
@@ -349,22 +411,34 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center bg-[#0B1221]/60 backdrop-blur-md rounded-full border border-white/10 overflow-hidden shadow-lg">
-                                                    <span className="text-sm font-bold text-white/90 px-3.5 py-1.5 border-r border-white/5">{event.time}</span>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const currentBuffer = event.parkingBuffer ?? 10;
-                                                            const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
-                                                            onBufferChange?.(event.id, nextBuffer);
-                                                        }}
-                                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-white/5 hover:text-white transition-all group/park"
-                                                        title="Adjust parking/buffer time"
-                                                    >
-                                                        <Car size={13} className="text-[#007AFF] opacity-80 group-hover/park:opacity-100 transition-opacity" />
-                                                        <span className="text-[11px] font-bold">
-                                                            {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
-                                                        </span>
-                                                    </button>
+                                                    <span className={`text-sm font-bold ${timeColor} px-3.5 py-1.5 border-r border-white/5`}>{event.time}</span>
+                                                    {isFirst ? (
+                                                        <div className="flex items-center gap-2 px-3.5 py-1.5 text-white/90">
+                                                            <MapPin size={14} className="text-[#007AFF]" />
+                                                            <span className="text-sm font-bold">Start</span>
+                                                        </div>
+                                                    ) : event.isEnd ? (
+                                                        <div className="flex items-center gap-2 px-3.5 py-1.5 text-white/90">
+                                                            <MapPin size={14} className="text-red-400" />
+                                                            <span className="text-sm font-bold">End</span>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const currentBuffer = event.parkingBuffer ?? 10;
+                                                                const nextBuffer = currentBuffer >= 30 ? 0 : currentBuffer + 10;
+                                                                onBufferChange?.(event.id, nextBuffer);
+                                                            }}
+                                                            className="flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:bg-white/5 hover:text-white transition-all group/park"
+                                                            title="Adjust parking/buffer time"
+                                                        >
+                                                            <Car size={13} className="text-[#007AFF] opacity-80 group-hover/park:opacity-100 transition-opacity" />
+                                                            <span className="text-[11px] font-bold">
+                                                                {event.parkingBuffer ?? 10} {(event.parkingBuffer ?? 10) === 1 ? 'min' : 'mins'} parking
+                                                            </span>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                             {event.status && event.status !== 'Scheduled' && (
@@ -375,19 +449,29 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
                                         {event.description && <p className="text-sm text-slate-200/80 mb-4 leading-relaxed font-medium line-clamp-2 drop-shadow-sm">{event.description}</p>}
 
-                                        {(event.duration || event.rating) && (
-                                            <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
-                                                {event.rating && (
-                                                    <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
-                                                        <Star size={14} fill="currentColor" />
-                                                        <span className="text-slate-100">{event.rating}</span>
-                                                        <span className="text-slate-400 font-medium">({event.reviews})</span>
-                                                    </div>
-                                                )}
-                                                {event.duration && (
-                                                    <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
-                                                        <Clock size={13} className="text-[#007AFF]" />
-                                                        <span>{event.duration}</span>
+                                        {(event.duration || event.rating || event.openingHours) && (
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
+                                                    {event.rating && (
+                                                        <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
+                                                            <Star size={14} fill="currentColor" />
+                                                            <span className="text-slate-100">{event.rating}</span>
+                                                            <span className="text-slate-400 font-medium">({event.reviews})</span>
+                                                        </div>
+                                                    )}
+                                                    {event.duration && (
+                                                        <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
+                                                            <Clock size={13} className="text-[#007AFF]" />
+                                                            <span>{event.duration}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Opening Hours Display */}
+                                                {event.openingHours && getTodayHours(event.openingHours) && (
+                                                    <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 opacity-80 pl-0.5">
+                                                        <span className={getTimeColor(event.time, getTodayHours(event.openingHours)!.open, getTodayHours(event.openingHours)!.close)}>
+                                                            {getTodayHours(event.openingHours)!.text}
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>

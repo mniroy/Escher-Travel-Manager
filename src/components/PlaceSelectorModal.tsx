@@ -7,7 +7,7 @@ interface PlaceSelectorModalProps {
     isOpen: boolean;
     onClose: () => void;
     savedPlaces: TimelineEvent[];
-    onSelectPlace: (place: TimelineEvent, durationMinutes: number) => void;
+    onSelectPlace: (place: TimelineEvent, durationMinutes: number, isStart: boolean, isEnd: boolean) => void;
     onAddNew: () => void; // Fallback to add new scratch place
 }
 
@@ -15,6 +15,10 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [durationMinutes, setDurationMinutes] = useState<{ [key: string]: number }>({});
+
+    // Track Start/End selection per place ID
+    const [startPlaces, setStartPlaces] = useState<Set<string>>(new Set());
+    const [endPlaces, setEndPlaces] = useState<Set<string>>(new Set());
 
     const filteredPlaces = useMemo(() => {
         return savedPlaces.filter(p =>
@@ -33,6 +37,24 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
         }));
     };
 
+    const toggleStart = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setStartPlaces(prev => {
+            const next = new Set<string>(); // Clear others (Single Select)
+            if (!prev.has(id)) next.add(id); // Toggle ON if not present
+            return next;
+        });
+    };
+
+    const toggleEnd = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEndPlaces(prev => {
+            const next = new Set<string>(); // Clear others (Single Select)
+            if (!prev.has(id)) next.add(id); // Toggle ON if not present
+            return next;
+        });
+    };
+
     const formatDuration = (mins: number) => {
         const h = Math.floor(mins / 60);
         const m = mins % 60;
@@ -42,8 +64,28 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
     };
 
     const handleSelect = (place: TimelineEvent) => {
-        onSelectPlace(place, getDuration(place.id));
-        onClose();
+        const isStart = startPlaces.has(place.id);
+        const isEnd = endPlaces.has(place.id);
+
+        onSelectPlace(place, getDuration(place.id), isStart, isEnd);
+
+        // Reset flags for this item after adding? Or keep them?
+        // User might want to add same place again differently.
+        // Let's keep them for now, or maybe clear them to give feedback.
+        // Let's clear the checkboxes for this item to indicate "Consumed"
+        setStartPlaces(prev => {
+            const next = new Set(prev);
+            next.delete(place.id);
+            return next;
+        });
+        setEndPlaces(prev => {
+            const next = new Set(prev);
+            next.delete(place.id);
+            return next;
+        });
+
+        // DO NOT CLOSE MODAL
+        // onClose(); 
     };
 
     if (!isOpen) return null;
@@ -62,10 +104,13 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
                 <div className="p-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50">
                     <div>
                         <h2 className="text-lg font-bold text-zinc-900">Add from Library</h2>
-                        <p className="text-xs text-zinc-500">Choose a saved place to schedule</p>
+                        <p className="text-xs text-zinc-500">Add multiple places to your day</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors">
-                        <X size={20} />
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-zinc-800 transition-colors"
+                    >
+                        Done
                     </button>
                 </div>
 
@@ -119,6 +164,29 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
                                             <Plus size={12} strokeWidth={3} />
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Start/End Toggles */}
+                                <div className="flex items-center gap-4 mt-3 px-1">
+                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
+                                        <div
+                                            onClick={(e) => toggleStart(place.id, e)}
+                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${startPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
+                                        >
+                                            {startPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
+                                        </div>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${startPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>Start</span>
+                                    </label>
+
+                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
+                                        <div
+                                            onClick={(e) => toggleEnd(place.id, e)}
+                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${endPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
+                                        >
+                                            {endPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
+                                        </div>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${endPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>End</span>
+                                    </label>
                                 </div>
 
                                 <button

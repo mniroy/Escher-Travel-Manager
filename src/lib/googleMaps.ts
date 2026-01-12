@@ -217,18 +217,19 @@ export function isGoogleMapsUrl(text: string): boolean {
 /**
  * Call the optimization API to reorder events
  */
-export async function optimizeRoute(events: any[], options?: { preserveOrder: boolean }): Promise<any[]> {
+export async function optimizeRoute(events: any[], options?: { preserveOrder?: boolean; fixEnd?: boolean }): Promise<any[]> {
     // We need at least 3 items to optimize 'intermediates' meaningfully (Origin -> A -> Destination), or 2 items to just get leg info.
     if (events.length < 2) return events;
 
     try {
-        console.log('[Traffic Debug] Making API call with', events.length, 'events');
+        console.log('[Traffic Debug] Making API call with', events.length, 'events. Fixed End:', options?.fixEnd);
         const response = await fetch('/api/optimize-route', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 items: events,
-                preserveOrder: options?.preserveOrder
+                preserveOrder: options?.preserveOrder,
+                fixEnd: options?.fixEnd
             })
         });
 
@@ -237,7 +238,7 @@ export async function optimizeRoute(events: any[], options?: { preserveOrder: bo
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[Traffic Debug] Optimization failed:', errorText);
-            return events;
+            throw new Error(`Optimization failed: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
@@ -253,22 +254,42 @@ export async function optimizeRoute(events: any[], options?: { preserveOrder: bo
         console.log('[Traffic Debug] Legs count:', legs?.length);
 
         // Origin is always first (events[0])
-        // Destination is always last (events[last])
-        // Intermediates are events[1...last-1]
-
         const origin = events[0];
-        const destination = events[events.length - 1];
-        const intermediates = events.slice(1, events.length - 1);
+
+        let intermediates;
+        let finalDestination = null;
+
+        if (options?.fixEnd) {
+            // Linear: Origin -> [Pool] -> Destination
+            finalDestination = events[events.length - 1];
+            intermediates = events.slice(1, -1);
+        } else {
+            // Loop: Origin -> [Pool] -> Origin (Implicit)
+            intermediates = events.slice(1);
+        }
 
         let newIntermediates = intermediates;
 
+        console.log('[Traffic Debug] Original Intermediates:', intermediates.map(i => i.title));
+
         // If NOT preserving order, reorder intermediates based on API response
-        if (!options?.preserveOrder && route.optimizedIntermediateWaypointIndex) {
-            const optimizedIndices = route.optimizedIntermediateWaypointIndex;
-            newIntermediates = optimizedIndices.map((i: number) => intermediates[i]);
+        if (!options?.preserveOrder) {
+            if (route.optimizedIntermediateWaypointIndex) {
+                const optimizedIndices = route.optimizedIntermediateWaypointIndex;
+                console.log('[Traffic Debug] Optimized Indices from Google:', optimizedIndices);
+                newIntermediates = optimizedIndices.map((i: number) => intermediates[i]);
+                console.log('[Traffic Debug] New Intermediates Order:', newIntermediates.map(i => i.title));
+            } else {
+                console.warn('[Traffic Debug] API returned 200 OK but NO "optimizedIntermediateWaypointIndex". This usually means "Routes API" is not fully enabled or the route is trivial.');
+                // Optional: Throw here to force user attention
+                // throw new Error('Optimization result missing reordering data. Please check "Routes API" enablement.');
+            }
         }
 
-        const newOrder = [origin, ...newIntermediates, destination];
+        const newOrder = [origin, ...newIntermediates];
+        if (finalDestination) {
+            newOrder.push(finalDestination);
+        }
 
         // Apply Travel Times from Legs
         // Leg 0: Origin -> Waypoint 1 (newIntermediates[0])

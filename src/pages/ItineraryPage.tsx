@@ -16,8 +16,13 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 // Helper functions for time calculation
 const parseTime = (str: string) => {
     try {
+        if (!str || str.startsWith('NaN')) return 9 * 60; // Heal bad data
+
         const [time, period] = str.split(' ');
         let [h, m] = time.split(':').map(Number);
+
+        if (isNaN(h) || isNaN(m)) return 9 * 60; // Fallback
+
         if (period === 'PM' && h !== 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
         return h * 60 + m;
@@ -50,11 +55,6 @@ const formatTime = (minutes: number) => {
     return `${h}:${m.toString().padStart(2, '0')} ${period}`;
 };
 
-const hhmmToMinutes = (hhmm: string) => {
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-};
-
 export default function ItineraryPage() {
     const {
         tripName, setTripName,
@@ -71,6 +71,7 @@ export default function ItineraryPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [isUpdatingTraffic, setIsUpdatingTraffic] = useState(false);
+    // HMR FORCE UPDATE 2
     const [isControlsExpanded, setIsControlsExpanded] = useState(true);
 
     const recalculateSchedule = (baseEvents?: TimelineEvent[]) => {
@@ -106,7 +107,7 @@ export default function ItineraryPage() {
     };
 
     const handleTimeChange = (id: string, newHHMM: string) => {
-        const minutes = hhmmToMinutes(newHHMM);
+        const minutes = parseTime(newHHMM);
         const formattedTime = formatTime(minutes);
 
         const index = events.findIndex(e => e.id === id);
@@ -185,7 +186,10 @@ export default function ItineraryPage() {
             const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
 
             // Call Real Optimization API (with reorder)
-            const optimizedDay = await optimizeRoute(currentDayEvents);
+            // Check if we have an END event
+            const hasEndEvent = currentDayEvents.some(e => e.isEnd);
+
+            const optimizedDay = await optimizeRoute(currentDayEvents, { fixEnd: hasEndEvent });
 
             // Re-calculate timestamps based on new order and real travel times
             if (optimizedDay.length > 0) {
@@ -215,6 +219,8 @@ export default function ItineraryPage() {
 
         } catch (error) {
             console.error("Optimization failed", error);
+            // Alert user so they know it didn't work
+            alert('Optimization Error: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setIsOptimizing(false);
         }
@@ -228,7 +234,9 @@ export default function ItineraryPage() {
             const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
 
             // Call Real Optimization API (preserve order)
-            const trafficUpdatedEvents = await optimizeRoute(currentDayEvents, { preserveOrder: true });
+            // Check if we have an END event
+            const hasEndEvent = currentDayEvents.some(e => e.isEnd);
+            const trafficUpdatedEvents = await optimizeRoute(currentDayEvents, { preserveOrder: true, fixEnd: hasEndEvent });
 
             if (trafficUpdatedEvents.length > 0) {
                 let currentTime = parseTime(trafficUpdatedEvents[0].time); // Preserve start time
@@ -317,17 +325,25 @@ export default function ItineraryPage() {
         });
     };
 
-    const handleSkip = (id: string) => {
-        setEvents(prev => {
-            // Toggle skip
-            const updated = prev.map(e => e.id === id ? { ...e, status: (e.status === 'Skipped' ? 'Scheduled' : 'Skipped') as any } : e);
+    const handleSkip = async (id: string) => {
+        // 1. Optimistic Update: Toggle Status & Naive Recalc
+        const updatedEvents = [...events];
+        const index = updatedEvents.findIndex(e => e.id === id);
+        if (index === -1) return;
 
-            // Recalculate full day
-            if (!updated || updated.length === 0) return updated;
-            let cursorTime = parseTime(updated[0].time); // Anchor to first event
+        const currentEvent = updatedEvents[index];
+        const newStatus = currentEvent.status === 'Skipped' ? 'Scheduled' : 'Skipped';
 
-            return updated.map((event, index) => {
-                if (index > 0) {
+        // Update status
+        updatedEvents[index] = { ...currentEvent, status: newStatus };
+
+        // Naive Time Recalculation (Local)
+        const recalculateLocal = (evts: TimelineEvent[]) => {
+            if (!evts || evts.length === 0) return evts;
+            let cursorTime = parseTime(evts[0].time);
+
+            return evts.map((event, i) => {
+                if (i > 0) {
                     const travelMins = parseDuration(event.travelTime);
                     const startTime = cursorTime + travelMins;
                     event = { ...event, time: formatTime(startTime) };
@@ -338,11 +354,57 @@ export default function ItineraryPage() {
 
                 let durationMins = parseDuration(event.duration || '60m');
                 if (event.status === 'Skipped') durationMins = 0;
-
                 cursorTime += durationMins;
                 return event;
             });
-        });
+        };
+
+        const naiveUpdated = recalculateLocal(updatedEvents);
+        setEvents(naiveUpdated);
+
+        // 2. Async Traffic Recalculation
+        // Only run if we have valid non-skipped events to route between
+        setIsUpdatingTraffic(true);
+        try {
+            const currentDay = currentEvent.dayOffset || 0;
+            // Filter only ACTIVE events for routing
+            const activeDayEvents = naiveUpdated.filter(e =>
+                (e.dayOffset || 0) === currentDay && e.status !== 'Skipped'
+            );
+
+            // We need at least 2 events to calculate a route
+            if (activeDayEvents.length >= 2) {
+                const optimizedEvents = await optimizeRoute(activeDayEvents, { preserveOrder: true });
+
+                setEvents(prev => {
+                    // Create map of updated traffic data
+                    const trafficMap = new Map();
+                    optimizedEvents.forEach(e => {
+                        trafficMap.set(e.id, {
+                            travelTime: e.travelTime,
+                            congestion: e.congestion,
+                            travelDistance: e.travelDistance
+                        });
+                    });
+
+                    // Apply to current state
+                    const mergedEvents = prev.map(e => {
+                        if (trafficMap.has(e.id)) {
+                            const traffic = trafficMap.get(e.id);
+                            return { ...e, ...traffic };
+                        }
+                        return e;
+                    });
+
+                    // Re-run time calc with new travel times
+                    return recalculateLocal(mergedEvents);
+                });
+            }
+        } catch (error) {
+            console.error("Failed to recalculate traffic on skip:", error);
+        } finally {
+            setIsUpdatingTraffic(false);
+        }
     };
 
     const toggleDate = (offset: number) => {
@@ -350,8 +412,18 @@ export default function ItineraryPage() {
         setSelectedDayOffsets([offset]);
     };
 
-    const handleAddActivity = (activityData: NewActivity) => {
+    const handleSaveActivity = async (activityData: NewActivity) => {
         const targetOffset = selectedDayOffsets[0] || 0;
+
+        // Force browser to acknowledge execution
+        // alert('DEBUG: Saving Activity - OPENING HOURS: ' + (activityData.openingHours?.length || 'NONE'));
+        console.log('### ITINERARY-V5-FINAL ###');
+        console.log('!!! [ItineraryPage] handleSaveActivity:', activityData);
+        if (activityData.openingHours) {
+            console.log('!!! [ItineraryPage] HAS OPENING HOURS');
+        } else {
+            console.warn('!!! [ItineraryPage] MISSING OPENING HOURS');
+        }
 
         addToHistory(events); // Save state
 
@@ -365,13 +437,15 @@ export default function ItineraryPage() {
             setEditingEvent(null);
         } else {
             // CREATE new event
+            console.log('!!! [ItineraryPage] Creating event with oh:', activityData.openingHours?.length);
             const newEvent: TimelineEvent = {
                 id: uuidv4(),
                 ...activityData,
+                openingHours: activityData.openingHours, // Explicit assignment
                 dayOffset: targetOffset
             };
 
-            setEvents(prev => {
+            await setEvents(prev => {
                 if (insertIndex !== null) {
                     const thisDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetOffset);
                     const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetOffset);
@@ -392,29 +466,76 @@ export default function ItineraryPage() {
         }
     };
 
-    const handleSelectFromLibrary = (place: TimelineEvent, durationMins: number) => {
+    const handleSelectFromLibrary = (place: TimelineEvent, durationMins: number, isStart: boolean, isEnd: boolean) => {
         const targetDay = selectedDayOffsets[0] || 0;
-        const newEvent: TimelineEvent = {
+
+        const createEvent = (isStartFlag: boolean, isEndFlag: boolean): TimelineEvent => ({
             ...place,
             id: uuidv4(), // New ID for the instance
             status: 'Scheduled',
             dayOffset: targetDay,
             duration: durationMins < 60 ? `${durationMins}m` : `${Math.floor(durationMins / 60)}h${durationMins % 60 ? ` ${durationMins % 60}m` : ''}`,
-            time: '09:00 AM' // Default time, logic can be smarter
-        };
-
-        setEvents(prev => {
-            if (insertIndex !== null) {
-                const currentDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetDay);
-                const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetDay);
-                const newDayList = [...currentDayEvents];
-                newDayList.splice(insertIndex, 0, newEvent);
-                return [...otherEvents, ...newDayList];
-            }
-            return [...prev, newEvent];
+            time: isStartFlag ? '08:00 AM' : '09:00 AM', // Start items start earlier
+            isStart: isStartFlag,
+            isEnd: isEndFlag
         });
 
-        setIsSelectorOpen(false);
+        setEvents(prev => {
+            const currentDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetDay);
+            const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetDay);
+            let newDayList = [...currentDayEvents];
+
+            const addEventNormal = (evt: TimelineEvent) => {
+                // If the LAST item is an END item, insert before it
+                const lastItem = newDayList[newDayList.length - 1];
+                if (lastItem && lastItem.isEnd) {
+                    // Check if we have an insertIndex valid within the list
+                    if (insertIndex !== null && insertIndex < newDayList.length) {
+                        newDayList.splice(insertIndex, 0, evt);
+                    } else {
+                        // Insert before the last item (the End item)
+                        newDayList.splice(newDayList.length - 1, 0, evt);
+                    }
+                } else {
+                    // Normal behavior
+                    if (insertIndex !== null && insertIndex <= newDayList.length) {
+                        newDayList.splice(insertIndex, 0, evt);
+                    } else {
+                        newDayList.push(evt);
+                    }
+                }
+            };
+
+            // 1. Handle START Insertion
+            if (isStart) {
+                const startEvent = createEvent(true, false);
+                // Always unshift to top
+                newDayList.unshift(startEvent);
+                // Optional: Ensure only 1 start? For now, just unshift.
+            }
+
+            // 2. Handle END Insertion
+            // If it's BOTH Start AND End, we add a SECOND event at the end
+            if (isEnd) {
+                const endEvent = createEvent(false, true);
+                newDayList.push(endEvent);
+            }
+
+            // 3. Normal Insertion
+            if (!isStart && !isEnd) {
+                const normalEvent = createEvent(false, false);
+                addEventNormal(normalEvent);
+            }
+
+            return [...otherEvents, ...newDayList];
+        });
+
+        // DO NOT CLOSE SELECTOR
+        // setIsSelectorOpen(false); 
+        // We also probably shouldn't reset insertIndex if we want to keep adding?
+        // But if we insert multiple, the index moves.
+        // Let's reset insertIndex to null so subsequent adds go to end (unless user picked a specific slot, which is hard to persist)
+        // Actually, if I keep adding, I probably want to append.
         setInsertIndex(null);
     };
 
@@ -571,7 +692,7 @@ export default function ItineraryPage() {
             <AddActivityModal
                 isOpen={isModalOpen}
                 onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
-                onSave={handleAddActivity}
+                onSave={handleSaveActivity}
                 initialData={editingEvent}
             />
 
