@@ -13,7 +13,7 @@ export default function PlacesPage() {
     const { events, setEvents, deleteEvent } = useTrip(); // Need deleteEvent
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-    const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80');
+    const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1555400038-63f5ba517a47?auto=format&fit=crop&w=1000&q=80');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const { scrollY } = useScroll();
@@ -104,9 +104,10 @@ export default function PlacesPage() {
 
     return (
         <Layout>
-            <div className="relative min-h-screen bg-zinc-50 pb-24">
-                {/* Parallax Header */}
-                <div className="h-[45vh] w-full fixed top-0 left-0 right-0 z-0 overflow-hidden bg-zinc-900">
+            <div className="min-h-screen bg-zinc-50 pb-24">
+
+                {/* Parallax Header - Smaller to match Itinerary */}
+                <div className="h-[280px] w-full fixed top-0 left-0 right-0 z-0 overflow-hidden bg-zinc-900">
                     <AnimatePresence mode="popLayout">
                         <motion.img
                             key={bgImage}
@@ -123,19 +124,37 @@ export default function PlacesPage() {
                     <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
 
-                    <div className="absolute bottom-24 left-6 z-20">
-                        <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Places</h1>
-                        <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Your curated list of must-visit spots.</p>
+                    <div className="absolute bottom-16 left-6 z-20">
+                        <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Destination Library</h1>
+                        <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Your personal collection of saved places.</p>
                     </div>
                 </div>
 
                 {/* Content Layer */}
-                <div className="relative z-10 mt-[42vh]">
+                <div className="relative z-10 mt-[260px]">
                     <div className="bg-zinc-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] min-h-screen pt-2">
 
                         {/* Search & Filter Sticky Header */}
                         <div className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md pt-6 pb-4 px-6 rounded-t-[2.5rem] border-b border-zinc-100">
                             <div className="space-y-4">
+                                {/* Explore Banner */}
+                                <Link
+                                    to="/places/explore"
+                                    className="block bg-gradient-to-r from-[#007AFF] to-blue-600 p-4 rounded-3xl text-white shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-bold text-lg">Explore Recommendations</h3>
+                                            </div>
+                                            <p className="text-blue-100 text-xs font-medium">Find new gems to add to your library</p>
+                                        </div>
+                                        <div className="bg-white/20 w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm">
+                                            <ArrowRight size={20} />
+                                        </div>
+                                    </div>
+                                </Link>
+
                                 <div className="flex gap-2">
                                     <div className="relative shadow-lg shadow-zinc-200/50 rounded-2xl flex-grow">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
@@ -143,25 +162,17 @@ export default function PlacesPage() {
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search places..."
+                                            placeholder="Search your library..."
                                             className="w-full bg-white border border-zinc-100 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-2 focus:ring-blue-100 placeholder:text-zinc-400 font-medium transition-all"
                                         />
                                     </div>
                                     <button
                                         onClick={() => setIsAddModalOpen(true)}
-                                        className="bg-[#007AFF] px-5 rounded-2xl flex items-center justify-center gap-2 text-white shadow-lg shadow-blue-500/20 hover:bg-[#0061c2] active:scale-95 transition-all font-bold text-sm min-w-fit"
+                                        className="bg-white border border-zinc-200 px-4 rounded-2xl flex items-center justify-center gap-2 text-zinc-700 shadow-sm hover:bg-zinc-50 active:scale-95 transition-all font-bold text-sm min-w-fit"
                                     >
                                         <Plus size={20} />
-                                        <span>Add New</span>
                                     </button>
                                 </div>
-
-                                <Link
-                                    to="/places/explore"
-                                    className="block mt-2 bg-white border border-zinc-100 py-3 rounded-2xl text-center text-sm font-bold text-[#007AFF] shadow-sm hover:bg-zinc-50 transition-colors"
-                                >
-                                    ✨ Explore Recommendations
-                                </Link>
 
                                 <div>
                                     <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
@@ -194,12 +205,12 @@ export default function PlacesPage() {
 
                                                     <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
 
-                                                    {/* Type Badge */}
-                                                    <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-sm">
+                                                    {/* Type Badge (Category Label - Left Now) */}
+                                                    <div className="absolute top-3 left-3 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 shadow-sm z-20">
                                                         {place.type}
                                                     </div>
 
-                                                    {/* Delete Button */}
+                                                    {/* Delete Button (Corner Peel - Right Now) */}
                                                     <button
                                                         onClick={(e) => {
                                                             e.preventDefault();
@@ -208,9 +219,12 @@ export default function PlacesPage() {
                                                                 deleteEvent(place.id);
                                                             }
                                                         }}
-                                                        className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 border border-white/20 transition-all z-20"
+                                                        className="absolute top-0 right-0 w-14 h-14 flex items-start justify-end transition-all z-20 group/delete hover:scale-105"
+                                                        title="Delete from library"
                                                     >
-                                                        <Trash2 size={14} />
+                                                        {/* The Peel Background */}
+                                                        <div className="absolute top-0 right-0 w-full h-full bg-white/10 backdrop-blur-sm group-hover/delete:bg-red-500/20 transition-all [clip-path:polygon(0_0,100%_0,100%_100%)] border-l border-b border-white/10 shadow-sm" />
+                                                        <Trash2 size={15} className="mt-3 mr-3 text-white/50 group-hover/delete:text-red-400 transition-all transform group-hover/delete:scale-110" />
                                                     </button>
                                                 </div>
 

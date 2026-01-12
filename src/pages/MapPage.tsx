@@ -1,7 +1,7 @@
 import { Layout } from '../components/Layout';
-import { Car, MapPin, ChevronUp, ChevronDown } from 'lucide-react';
+import { MapPin, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MapComponent } from '../components/MapComponent';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +9,14 @@ export default function MapPage() {
     const { tripDates, events } = useTrip();
     const [selectedDayOffset, setSelectedDayOffset] = useState(0);
     const [isRouteCardExpanded, setIsRouteCardExpanded] = useState(true);
+    const [liveDistance, setLiveDistance] = useState<number | null>(null);
+    const [liveDuration, setLiveDuration] = useState<number | null>(null);
+
+    // Reset live data when changing days
+    useEffect(() => {
+        setLiveDistance(null);
+        setLiveDuration(null);
+    }, [selectedDayOffset]);
 
     const selectedDate = tripDates.find(d => d.offset === selectedDayOffset) || tripDates[0];
 
@@ -58,7 +66,9 @@ export default function MapPage() {
 
     const totalDistance = dayEvents.reduce((acc, curr) => {
         if (curr.travelDistance) {
-            const val = parseFloat(curr.travelDistance.replace(' KM', ''));
+            // Extract the number part from "5.2 km", "3 KM", etc.
+            const match = curr.travelDistance.match(/([\d.]+)/);
+            const val = match ? parseFloat(match[1]) : 0;
             return acc + (isNaN(val) ? 0 : val);
         }
         return acc;
@@ -66,16 +76,21 @@ export default function MapPage() {
 
     const totalTravelTime = dayEvents.reduce((acc, curr) => {
         if (curr.travelTime) {
-            const parts = curr.travelTime.split(' ');
+            // Flexible parsing for "1h 30m", "45m", "2h", etc.
+            const hoursMatch = curr.travelTime.match(/(\d+)\s*h/i);
+            const minsMatch = curr.travelTime.match(/(\d+)\s*m/i);
+
             let min = 0;
-            parts.forEach(p => {
-                if (p.endsWith('h')) min += parseInt(p) * 60;
-                if (p.endsWith('m')) min += parseInt(p);
-            });
+            if (hoursMatch) min += parseInt(hoursMatch[1]) * 60;
+            if (minsMatch) min += parseInt(minsMatch[1]);
+
             return acc + min;
         }
         return acc;
     }, 0);
+
+    const displayDistance = liveDistance !== null ? liveDistance : totalDistance;
+    const displayDuration = liveDuration !== null ? liveDuration : totalTravelTime;
 
     return (
         <Layout fullScreen>
@@ -87,6 +102,10 @@ export default function MapPage() {
                     zoom={12}
                     markers={markers}
                     className="w-full h-full"
+                    onRouteInfo={(dist, dur) => {
+                        setLiveDistance(dist);
+                        setLiveDuration(dur);
+                    }}
                 />
 
                 {/* Controls Overlay */}
@@ -120,21 +139,19 @@ export default function MapPage() {
                                 className="p-5 flex justify-between items-start flex-shrink-0 cursor-pointer active:bg-zinc-50 transition-colors touch-none"
                             >
                                 <div>
-                                    <h3 className="text-zinc-900 font-bold text-lg flex items-center gap-2">
+                                    <h3 className="text-zinc-900 font-bold text-lg flex items-center flex-wrap gap-x-2">
                                         Route
+                                        {displayDuration > 0 && <span className="text-zinc-400 font-medium">•</span>}
+                                        {displayDuration > 0 && <span className="text-sm text-zinc-600">{Math.floor(displayDuration / 60)}h {displayDuration % 60}m</span>}
+                                        {displayDistance > 0 && <span className="text-zinc-400 font-medium">•</span>}
+                                        {displayDistance > 0 && <span className="text-sm text-zinc-600">{displayDistance.toFixed(1)} km</span>}
                                     </h3>
                                     <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium mt-1">
                                         <span className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-600">{dayEvents.length} stops</span>
-                                        {totalDistance > 0 && <span>• {totalDistance.toFixed(1)} km</span>}
-                                        {totalTravelTime > 0 && <span>• {Math.floor(totalTravelTime / 60)}h {totalTravelTime % 60}m</span>}
                                     </div>
                                 </div>
 
                                 <div className="flex gap-3">
-                                    <div className="text-right">
-                                        <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Next</div>
-                                        <div className="text-zinc-900 font-bold text-sm truncate max-w-[100px]">{dayEvents[0].title}</div>
-                                    </div>
                                     <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400">
                                         {isRouteCardExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                                     </div>

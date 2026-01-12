@@ -755,13 +755,42 @@ export default function ItineraryPage() {
             {/* Sticky Actions Bar */}
             <div className="sticky top-0 z-30 transition-all -mt-5">
                 <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-[2rem] overflow-hidden shadow-[0_-12px_40px_rgba(0,0,0,0.4)]">
+                    {/* Trip Summary Stats - Always Visible */}
+                    <div className="px-6 pt-5 pb-4 border-b border-zinc-100">
+                        <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em] mb-3 text-center">
+                            Day {(selectedDayOffsets[0] || 0) + 1} Summary
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                <div className="text-[#007AFF] mb-1 opacity-80"><MapPin size={14} /></div>
+                                <div className="text-sm font-bold text-zinc-900">{stats.destinations}</div>
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Places</div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                <div className="text-[#007AFF] mb-1 opacity-80"><Clock size={14} /></div>
+                                <div className="text-sm font-bold text-zinc-900">{stats.totalTime}</div>
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Total</div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                <div className="text-[#007AFF] mb-1 opacity-80"><CarFront size={14} /></div>
+                                <div className="text-sm font-bold text-zinc-900">{stats.roadTime}</div>
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Road</div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
+                                <div className="text-[#007AFF] mb-1 opacity-80"><Hourglass size={14} /></div>
+                                <div className="text-sm font-bold text-zinc-900">{stats.spotTime}</div>
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Spot</div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Check/Collapse Toggle Area */}
                     <div
-                        className="w-full flex justify-center pt-3 pb-1 cursor-pointer active:opacity-70 transition-opacity"
+                        className="w-full flex justify-center pt-1 pb-1 cursor-pointer active:opacity-70 transition-opacity"
                         onClick={() => setIsControlsExpanded(!isControlsExpanded)}
                     >
-                        <div className="w-16 h-6 flex items-center justify-center bg-zinc-100/50 rounded-full text-zinc-400 hover:text-[#007AFF] transition-colors">
-                            {isControlsExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
+                        <div className="w-16 h-5 flex items-center justify-center bg-zinc-100/50 rounded-full text-zinc-400 hover:text-[#007AFF] transition-colors">
+                            {isControlsExpanded ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
                         </div>
                     </div>
 
@@ -774,61 +803,44 @@ export default function ItineraryPage() {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                {/* Trip Summary Stats */}
-                                <div className="px-6 py-4 border-b border-zinc-100">
-                                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 text-center">
-                                        Day {(selectedDayOffsets[0] || 0) + 1}
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
-                                            <div className="text-zinc-400 mb-1"><MapPin size={14} /></div>
-                                            <div className="text-sm font-bold text-zinc-900">{stats.destinations}</div>
-                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Places</div>
-                                        </div>
-                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
-                                            <div className="text-zinc-400 mb-1"><Clock size={14} /></div>
-                                            <div className="text-sm font-bold text-zinc-900">{stats.totalTime}</div>
-                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Total</div>
-                                        </div>
-                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
-                                            <div className="text-zinc-400 mb-1"><CarFront size={14} /></div>
-                                            <div className="text-sm font-bold text-zinc-900">{stats.roadTime}</div>
-                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Road</div>
-                                        </div>
-                                        <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
-                                            <div className="text-zinc-400 mb-1"><Hourglass size={14} /></div>
-                                            <div className="text-sm font-bold text-zinc-900">{stats.spotTime}</div>
-                                            <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide">Spot</div>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 {/* Controls Group (Grey Background) */}
                                 <div className="bg-zinc-50/80 border-t border-zinc-200">
-                                    <div className="pt-4 pb-2">
-                                        <CategoryFilter selected={category} onSelect={setCategory} />
+                                    {/* Category Section */}
+                                    <div className="pt-3.5">
+                                        <div className="px-6 mb-1">
+                                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em]">Category Filter</span>
+                                        </div>
+                                        <div className="pb-3">
+                                            <CategoryFilter selected={category} onSelect={setCategory} />
+                                        </div>
                                     </div>
 
-                                    {/* Date Selector */}
-                                    <div className="flex gap-2 flex-wrap justify-start px-6 pb-5 overflow-x-auto no-scrollbar">
-                                        {tripDates.map((dateObj, i) => {
-                                            const isSelected = selectedDayOffsets.includes(dateObj.offset);
-                                            return (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => toggleDate(dateObj.offset)}
-                                                    className={`
+                                    {/* Date Section */}
+                                    <div className="pt-3 border-t border-zinc-100/50">
+                                        <div className="px-6 mb-2">
+                                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em]">Date Selection</span>
+                                        </div>
+                                        <div className="flex gap-2 flex-wrap justify-start px-6 pb-4 overflow-x-auto no-scrollbar">
+                                            {tripDates.map((dateObj, i) => {
+                                                const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => toggleDate(dateObj.offset)}
+                                                        className={`
                                                     flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
                                                     ${isSelected
-                                                            ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                            : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
+                                                                ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
+                                                                : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
                                                 `}
-                                                >
-                                                    <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
-                                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
-                                                </button>
-                                            )
-                                        })}
+                                                    >
+                                                        <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
+                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -844,42 +856,42 @@ export default function ItineraryPage() {
                                 onClick={handleUpdateTraffic}
                                 disabled={isUpdatingTraffic}
                                 className={`
-                                h-8 px-3 rounded-full border flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all shadow-sm w-full
+                                h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
                                 ${isUpdatingTraffic
                                         ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-wait'
                                         : 'bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95'
                                     }
                             `}
                             >
-                                <RefreshCcw size={10} className={isUpdatingTraffic ? 'animate-spin' : ''} />
-                                {isUpdatingTraffic ? 'Updating...' : 'Update Traffic'}
+                                <RefreshCcw size={14} className={isUpdatingTraffic ? 'animate-spin' : ''} />
+                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isUpdatingTraffic ? 'Updating...' : 'Update Traffic'}</span>
                             </button>
 
                             <button
                                 onClick={handleOptimize}
                                 disabled={isOptimizing}
                                 className={`
-                                h-8 px-3 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all w-full
+                                h-14 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all w-full
                                 ${isOptimizing
                                         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
                                         : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
                                     }
                             `}
                             >
-                                <Sparkles size={10} className={isOptimizing ? 'animate-spin' : ''} />
-                                {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
+                                <Sparkles size={14} className={isOptimizing ? 'animate-spin' : ''} />
+                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-90">{isOptimizing ? 'Optimizing...' : 'Optimize Route'}</span>
                             </button>
 
                             <button
                                 onClick={handleToggleEdit}
-                                className={`h-8 px-3 rounded-full border flex items-center justify-center gap-1.5 text-[10px] font-bold transition-all shadow-sm w-full
+                                className={`h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
                                 ${isEditing
                                         ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
                                         : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
                             `}
                             >
-                                {isEditing ? <Check size={12} /> : <Pencil size={10} />}
-                                {isEditing ? 'Done' : 'Edit'}
+                                {isEditing ? <Check size={16} /> : <Pencil size={14} />}
+                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isEditing ? 'Done' : 'Edit Mode'}</span>
                             </button>
                         </div>
                     </div>
@@ -933,6 +945,7 @@ export default function ItineraryPage() {
                                             onSkip={handleSkip}
                                             onTimeChange={handleTimeChange}
                                             onBufferChange={handleBufferChange}
+                                            selectedDayName={tripDates.find(d => d.offset === (event.dayOffset ?? 0))?.dayName}
                                         />
                                         {isEditing && (
                                             <button

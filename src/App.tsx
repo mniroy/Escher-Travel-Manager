@@ -6,6 +6,7 @@ import MapPage from './pages/MapPage';
 import PlacesPage from './pages/PlacesPage';
 import ExplorePlacesPage from './pages/ExplorePlacesPage';
 import DocumentsPage from './pages/DocumentsPage';
+import { ScrollToTop } from './components/ScrollToTop';
 
 function AppContent() {
     const { isLoading } = useTrip();
@@ -40,6 +41,7 @@ function App() {
     return (
         <TripProvider>
             <Router>
+                <ScrollToTop />
                 <AppContent />
             </Router>
         </TripProvider>

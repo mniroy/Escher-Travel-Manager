@@ -7,43 +7,71 @@ import { TimePicker } from './TimePicker';
 // Helper: Parse hours from "9:00 AM – 5:00 PM" string
 const parseTimeStr = (t: string) => {
     try {
-        const [time, period] = t.trim().split(' ');
+        const parts = t.trim().split(/\s+/);
+        if (parts.length < 2) return 0;
+        const [time, period] = parts;
         let [h, m] = time.split(':').map(Number);
-        if (period === 'PM' && h !== 12) h += 12;
-        if (period === 'AM' && h === 12) h = 0;
+        if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (period.toUpperCase() === 'AM' && h === 12) h = 0;
         return h * 60 + m;
     } catch { return 0; }
 };
 
-const getTodayHours = (hours: string[] | undefined) => {
+const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) => {
     if (!hours || !Array.isArray(hours) || hours.length === 0) return null;
-    // Just pick the first one for now as we don't have day context easily
-    // In a real app we'd match the specific date
-    const todayStr = hours.find(h => !h.includes("Closed")) || hours[0];
-    if (!todayStr) return null;
 
-    // Extract "9:00 AM – 5:00 PM"
-    // Google format: "Monday: 9:00 AM – 5:00 PM"
-    const match = todayStr.match(/(\d{1,2}:\d{2}\s[AP]M)\s–\s(\d{1,2}:\d{2}\s[AP]M)/);
+    let dayStr: string | undefined;
+
+    if (selectedDayName) {
+        // Map short day names to full names if needed, or just check start
+        const fullDayMap: Record<string, string> = {
+            'Sun': 'Sunday', 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+            'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday'
+        };
+        const fullName = fullDayMap[selectedDayName] || selectedDayName;
+        dayStr = hours.find(h => h.startsWith(fullName));
+    }
+
+    // Fallback if no specific day or not found
+    if (!dayStr) {
+        dayStr = hours.find(h => !h.includes("Closed")) || hours[0];
+    }
+
+    if (!dayStr) return null;
+
+    // Handle "Open 24 hours"
+    if (dayStr.toLowerCase().includes("24 hours")) {
+        return { text: dayStr, open: 0, close: 24 * 60 };
+    }
+
+    // Improved Regex: Handle any dash type (-, –, —) and variable whitespace
+    const timeRegex = /(\d{1,2}:\d{2}\s*[AP]M)\s*[\-–—]\s*(\d{1,2}:\d{2}\s*[AP]M)/i;
+    const match = dayStr.match(timeRegex);
+
     if (match) {
         return {
-            text: todayStr, // Show full string e.g. "Monday: ..."
+            text: dayStr,
             open: parseTimeStr(match[1]),
             close: parseTimeStr(match[2])
         };
     }
-    return { text: todayStr, open: 0, close: 24 * 60 }; // Fallback
+    return { text: dayStr, open: 0, close: 24 * 60 }; // Fallback
 };
 
-const getTimeColor = (eventTime: string, open: number, close: number) => {
+const getTimeColor = (eventTime: string | null | undefined, open: number, close: number) => {
+    if (!eventTime) return 'text-white/90';
     const time = parseTimeStr(eventTime);
     if (!time) return 'text-white/90'; // Default
 
     // Check if Closed
-    if (time < open || time > close) return 'text-red-400';
+    if (time < open || time >= close) return 'text-red-400';
 
-    // Check if Closing Soon (within 60 mins)
-    if (close - time <= 60 && close - time > 0) return 'text-yellow-400';
+    // Check if almost opening (within 60 mins of opening)
+    // OR almost closing (within 60 mins of closing)
+    const warningBuffer = 60;
+    if (Math.abs(time - open) <= warningBuffer || Math.abs(close - time) <= warningBuffer) {
+        return 'text-yellow-400';
+    }
 
     return 'text-white/90';
 };
@@ -98,9 +126,10 @@ interface TimelineItemProps {
     nextCongestion?: 'low' | 'moderate' | 'high';
     onTimeChange?: (id: string, newTime: string) => void;
     onBufferChange?: (id: string, newBuffer: number) => void;
+    selectedDayName?: string;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, selectedDayName }: TimelineItemProps) {
     const [showTimePicker, setShowTimePicker] = useState(false);
     const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
@@ -142,7 +171,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     }
 
     // Opening Hours Logic
-    const todayHours = getTodayHours(event.openingHours);
+    const todayHours = getTodayHours(event.openingHours, selectedDayName);
     const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close) : 'text-white/90';
 
     return (
@@ -150,7 +179,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
 
             {/* 1. THE CONTINUOUS SPINE (Z-INDEX 0) */}
             <div className={`absolute top-0 w-[5px] left-1/2 -translate-x-1/2 ${showStartBadge ? 'bg-blue-200' : connectorColor} transition-colors duration-500 z-0`}
-                style={{ height: (showTravelTime || showStartBadge) ? '64px' : '0px' }} />
+                style={{ height: showTravelTime ? '64px' : '0px' }} />
 
             {!isLast && (
                 <div className={`absolute bottom-0 w-[5px] left-1/2 -translate-x-1/2 ${outgoingConnectorColor} transition-colors duration-500 z-0`}
@@ -169,7 +198,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         onClick={() => setShowTimePicker(true)}
                                     >
                                         <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
-                                        <span className="text-[12px] text-[#007AFF] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                        <span className={`text-[12px] ${timeColor === 'text-white/90' ? 'text-[#007AFF]' : timeColor} font-black uppercase tracking-widest flex items-center gap-1.5`}>
                                             {event.time}
                                             <Pencil size={10} className="opacity-40" />
                                         </span>
@@ -364,7 +393,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-300 transition-all"
                             >
                                 <div className="flex items-center bg-zinc-100 rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
-                                    <span className="text-xs font-bold text-zinc-500 whitespace-nowrap bg-zinc-100 px-3 py-1.5 border-r border-zinc-200/50 min-w-[3.5rem] text-center">{event.time}</span>
+                                    <span className={`text-xs font-bold ${timeColor === 'text-white/90' ? 'text-zinc-500' : timeColor} whitespace-nowrap bg-zinc-100 px-3 py-1.5 border-r border-zinc-200/50 min-w-[3.5rem] text-center`}>{event.time}</span>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -456,7 +485,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                         <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
                                                             <Star size={14} fill="currentColor" />
                                                             <span className="text-slate-100">{event.rating}</span>
-                                                            <span className="text-slate-400 font-medium">({event.reviews})</span>
+                                                            <span className="text-slate-400 font-medium">({event.reviews?.toLocaleString()})</span>
                                                         </div>
                                                     )}
                                                     {event.duration && (
@@ -467,10 +496,10 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                     )}
                                                 </div>
                                                 {/* Opening Hours Display */}
-                                                {event.openingHours && getTodayHours(event.openingHours) && (
+                                                {event.openingHours && todayHours && (
                                                     <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 opacity-80 pl-0.5">
-                                                        <span className={getTimeColor(event.time, getTodayHours(event.openingHours)!.open, getTodayHours(event.openingHours)!.close)}>
-                                                            {getTodayHours(event.openingHours)!.text}
+                                                        <span className={timeColor}>
+                                                            {todayHours.text}
                                                         </span>
                                                     </div>
                                                 )}

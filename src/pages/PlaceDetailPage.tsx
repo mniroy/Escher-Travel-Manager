@@ -1,6 +1,6 @@
 import { Layout } from '../components/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, Utensils, MessageSquare, X, Ticket } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, MessageSquare, X, Ticket } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTrip } from '../context/TripContext';
@@ -160,33 +160,42 @@ export default function PlaceDetailPage() {
             <div className="px-6 -mt-12 relative z-10 pb-24">
                 <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 border border-white/40 shadow-xl shadow-zinc-200/50 mb-8">
                     <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 leading-tight">{display.title}</h1>
-                    <div className="flex items-center text-zinc-500 text-sm gap-2 mb-6 font-medium">
-                        <MapPin size={16} className="text-[#007AFF]" />
-                        <span className="line-clamp-2">{display.address}</span>
+                    <div className="flex items-start text-zinc-500 text-sm gap-3 mb-6 font-medium">
+                        <div className="mt-0.5 shrink-0"><MapPin size={18} className="text-[#007AFF]" /></div>
+                        <span className="leading-relaxed">{display.address}</span>
                     </div>
 
-                    <div className="flex justify-between items-center border-t border-zinc-100 pt-5">
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5 text-yellow-500 mb-0.5">
-                                <Star size={16} fill="currentColor" className="text-yellow-400" />
-                                <span className="font-bold text-zinc-900">{display.rating || 'New'}</span>
-                                <span className="text-zinc-400 text-xs font-medium">({display.reviews || 0} reviews)</span>
+                    <div className="flex justify-between items-end border-t border-zinc-100 pt-5">
+                        <div className="flex flex-col gap-2.5">
+                            {/* Rating */}
+                            <div className="flex items-center gap-3">
+                                <div className="shrink-0"><Star size={18} fill="currentColor" className="text-yellow-400" /></div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-zinc-900 leading-none">{display.rating || 'New'}</span>
+                                    <span className="text-zinc-400 text-xs font-medium leading-none">({display.reviews?.toLocaleString() || 0} reviews)</span>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-0.5">
-                                {display.itineraryStatus && (
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-500">
-                                        <Clock size={14} />
-                                        <span>{display.itineraryStatus}</span>
+
+                            {/* Itinerary Status */}
+                            {display.itineraryStatus && (
+                                <div className="flex items-center gap-3 text-sm font-bold text-zinc-500">
+                                    <div className="shrink-0"><Clock size={18} /></div>
+                                    <span className="leading-none">{display.itineraryStatus}</span>
+                                </div>
+                            )}
+
+                            {/* Live Status */}
+                            {display.liveStatus && (
+                                <div className="flex items-center gap-3 text-sm font-bold">
+                                    <div className="w-[18px] h-[18px] flex items-center justify-center shrink-0">
+                                        <div className={`w-2 h-2 rounded-full ${display.liveStatus === 'Open now' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                     </div>
-                                )}
-                                {display.liveStatus && (
-                                    <div className="flex items-center gap-1.5 text-xs font-bold">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${display.liveStatus === 'Open now' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                        <span className={display.liveStatusColor}>{display.liveStatus}</span>
-                                        {display.closeTime && <span className="text-zinc-400 font-medium hidden sm:inline">– {display.closeTime}</span>}
+                                    <div className="flex items-center gap-2">
+                                        <span className={`${display.liveStatusColor} leading-none`}>{display.liveStatus}</span>
+                                        {display.closeTime && <span className="text-zinc-400 font-medium hidden sm:inline leading-none">– {display.closeTime}</span>}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                         {display.googleMapsLink && (
                             <a

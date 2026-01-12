@@ -22,6 +22,7 @@ interface MapComponentProps {
         congestion?: string;
     }>;
     className?: string;
+    onRouteInfo?: (totalDistance: number, totalDuration: number) => void;
 }
 
 export function MapComponent({
@@ -29,13 +30,14 @@ export function MapComponent({
     center = { lat: -8.409518, lng: 115.188919 }, // Default to Bali
     zoom = 10,
     markers = [],
-    className = "w-full h-full"
+    className = "w-full h-full",
+    onRouteInfo
 }: MapComponentProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
     const markersRef = useRef<any[]>([]);
     const directionsRendererRef = useRef<any>(null);
-    const polylinesRef = useRef<any[]>([]);
+
     const [isLoaded, setIsLoaded] = useState(false);
     const [scriptLoadError, setScriptLoadError] = useState<string>('');
     const [routeError, setRouteError] = useState<string>('');
@@ -94,6 +96,7 @@ export function MapComponent({
                 streetViewControl: false,
                 fullscreenControl: false,
                 backgroundColor: '#27272a',
+                gestureHandling: 'greedy',
             });
         }
     }, [isLoaded]);
@@ -243,15 +246,23 @@ export function MapComponent({
             if (status === window.google.maps.DirectionsStatus.OK) {
                 directionsRendererRef.current.setDirections(result);
 
-                // Optional: Fit bounds? DirectionsRenderer does this by default if preserveViewport is false (which it is by default)
-                // If we manually control zoom, we might want PreserveViewport: true
+                if (onRouteInfo && result.routes[0]) {
+                    const route = result.routes[0];
+                    let totalDistMeters = 0;
+                    let totalDurSeconds = 0;
+                    route.legs.forEach((leg: any) => {
+                        totalDistMeters += leg.distance.value;
+                        totalDurSeconds += leg.duration.value;
+                    });
+                    onRouteInfo(totalDistMeters / 1000, Math.floor(totalDurSeconds / 60));
+                }
             } else {
                 console.error('Directions request failed due to ' + status);
                 setRouteError(`Route: ${status}`);
             }
         });
 
-    }, [markers, isLoaded]); // Re-run when markers change OR map loads
+    }, [markers, isLoaded, onRouteInfo]); // Re-run when markers change OR map loads
 
 
 
