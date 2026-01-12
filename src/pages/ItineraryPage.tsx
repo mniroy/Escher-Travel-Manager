@@ -358,9 +358,9 @@ export default function ItineraryPage() {
                     </AnimatePresence>
                 </motion.div>
 
-                <div className="absolute inset-0 bg-black/20 z-10 pointer-events-none" />
+                <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
 
-                <div className="relative z-10 flex justify-between items-end pb-8">
+                <div className="relative z-10 flex justify-between items-end pb-12">
                     <div>
                         <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
                         <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
@@ -465,82 +465,83 @@ export default function ItineraryPage() {
                         )}
                     </AnimatePresence>
                 </div>
+            </div>
 
-                <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
-                    <AnimatePresence mode='popLayout'>
-                        {filteredEvents.length > 0 ? (
-                            filteredEvents.map((event, index) => (
-                                <motion.div
-                                    layout
-                                    key={event.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                                    style={{ animationDelay: `${index * 50}ms` }}
-                                >
+            <div className={`px-6 pb-24 pt-6 space-y-2 min-h-[50vh] transition-all ${isEditing ? 'px-8' : 'px-6'}`}>
+                <AnimatePresence mode='popLayout'>
+                    {filteredEvents.length > 0 ? (
+                        filteredEvents.map((event, index) => (
+                            <motion.div
+                                layout
+                                key={event.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.3 }}
+                                className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                                style={{ animationDelay: `${index * 50}ms` }}
+                            >
 
-                                    {/* Insert Zone BEFORE item */}
-                                    {isEditing && (
-                                        <div
-                                            onClick={() => openModalAt(index)}
-                                            className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
-                                        >
-                                            <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
-                                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
-                                                    <Plus size={10} strokeWidth={3} /> INSERT HERE
-                                                </div>
+                                {/* Insert Zone BEFORE item */}
+                                {isEditing && (
+                                    <div
+                                        onClick={() => openModalAt(index)}
+                                        className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                                    >
+                                        <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
+                                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                                                <Plus size={10} strokeWidth={3} /> INSERT HERE
                                             </div>
                                         </div>
-                                    )}
-
-                                    <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
-                                        <TimelineItem
-                                            event={event}
-                                            isLast={index === filteredEvents.length - 1}
-                                            icon={getIcon(event.type)}
-                                            // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
-                                            onCheckIn={handleCheckIn}
-                                            onSkip={handleSkip}
-                                        />
-                                        {isEditing && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                                className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
-                                            >
-                                                <X size={14} strokeWidth={3} />
-                                            </button>
-                                        )}
                                     </div>
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
-                                <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
-                                    <MapPin size={24} className="opacity-50 text-zinc-500" />
-                                </div>
-                                <button
-                                    onClick={() => openModalAt(0)}
-                                    className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                                >
-                                    <Plus size={16} strokeWidth={3} />
-                                    Add First Activity
-                                </button>
-                            </div>
-                        )}
+                                )}
 
-                        {/* Final Insert Zone at the end */}
-                        {isEditing && filteredEvents.length > 0 && (
-                            <div
-                                onClick={() => openModalAt(filteredEvents.length)}
-                                className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
-                            >
-                                + Add to End
+                                <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
+                                    <TimelineItem
+                                        event={event}
+                                        isLast={index === filteredEvents.length - 1}
+                                        icon={getIcon(event.type)}
+                                        // onClick={() => isEditing && openEditModal(event)} // Removed duplicate onClick
+                                        onCheckIn={handleCheckIn}
+                                        onSkip={handleSkip}
+                                    />
+                                    {isEditing && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                            className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-400 animate-in fade-in zoom-in duration-300">
+                            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center mb-6 border border-zinc-800">
+                                <MapPin size={24} className="opacity-50 text-zinc-500" />
                             </div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                            <button
+                                onClick={() => openModalAt(0)}
+                                className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                <Plus size={16} strokeWidth={3} />
+                                Add First Activity
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Final Insert Zone at the end */}
+                    {isEditing && filteredEvents.length > 0 && (
+                        <div
+                            onClick={() => openModalAt(filteredEvents.length)}
+                            className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                        >
+                            + Add to End
+                        </div>
+                    )}
+                </AnimatePresence>
+            </div>
         </Layout>
     );
 }

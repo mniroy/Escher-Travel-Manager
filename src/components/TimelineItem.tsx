@@ -64,7 +64,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                 {/* Travel Time Badge */}
                 {hasTravelTime && (
                     <div className={`absolute -top-16 h-16 left-1/2 -translate-x-1/2 flex items-center justify-center z-10 ${isSkipped ? 'opacity-30' : ''}`}>
-                        <div className="bg-black border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
+                        <div className="bg-[#0B1221] border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
                             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide flex items-center gap-1.5">
                                 {event.travelMode === 'walk' ? <Footprints size={10} className="opacity-70" /> : <Car size={10} className="opacity-70" />}
                                 {event.travelTime}
@@ -74,7 +74,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                 )}
 
                 <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center z-10 shrink-0 shadow-sm relative transition-all duration-300 ${isCheckedIn ? 'bg-[#007AFF] border-[#007AFF] text-white' :
-                    isSkipped ? 'bg-zinc-900 border-zinc-800 text-zinc-600' : 'bg-black border-zinc-800 text-zinc-400 group-hover:border-[#007AFF] group-hover:text-[#007AFF]'
+                    isSkipped ? 'bg-zinc-900 border-zinc-800 text-zinc-600' : 'bg-[#0B1221] border-zinc-800 text-zinc-400 group-hover:border-[#007AFF] group-hover:text-[#007AFF]'
                     }`}>
                     {icon}
                 </div>
@@ -199,14 +199,14 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                                 alt={event.title}
                                                 className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
                                             />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-[#0B1221]/90 via-[#0B1221]/50 to-[#0B1221]/30" />
                                         </div>
                                     </>
                                 )}
 
                                 <div className="relative z-10">
                                     <div className="flex justify-between items-start mb-3">
-                                        <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
+                                        <span className="text-sm font-bold text-white/90 drop-shadow-sm bg-[#0B1221]/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">{event.time}</span>
                                         {event.status && event.status !== 'Scheduled' && (
                                             <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
                                         )}
@@ -218,14 +218,14 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                                     {(event.duration || event.rating) && (
                                         <div className="flex items-center gap-4 text-xs text-slate-300 font-bold">
                                             {event.rating && (
-                                                <div className="flex items-center gap-1 text-[#007AFF] bg-black/30 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
+                                                <div className="flex items-center gap-1 text-[#007AFF] bg-[#0B1221]/40 px-2 py-1 rounded-lg backdrop-blur-md border border-white/5">
                                                     <Star size={14} fill="currentColor" />
                                                     <span className="text-slate-100">{event.rating}</span>
                                                     <span className="text-slate-400 font-medium">({event.reviews})</span>
                                                 </div>
                                             )}
                                             {event.duration && (
-                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
+                                                <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
                                                     <Clock size={13} className="text-[#007AFF]" />
                                                     <span>{event.duration}</span>
                                                 </div>
