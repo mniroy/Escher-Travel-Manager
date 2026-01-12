@@ -6,7 +6,7 @@ export function BottomNavigation() {
     const isActive = (path: string) => location.pathname === path;
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/90 backdrop-blur-xl border-t border-white/5 px-6 py-2 pb-4">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0B1221]/90 backdrop-blur-xl border-t border-white/5 px-6 py-2 pb-4">
             <div className="flex justify-between items-end max-w-sm mx-auto h-12">
                 <NavLink to="/" icon={<Calendar size={20} strokeWidth={2.5} />} active={isActive('/')} label="Itinerary" />
                 <NavLink to="/places" icon={<MapPin size={20} strokeWidth={2.5} />} active={isActive('/places')} label="Places" />
@@ -24,7 +24,7 @@ function NavLink({ to, icon, active, label: _label }: { to: string; icon: React.
             className={`
                 relative flex items-center justify-center transition-all duration-300 
                 ${active
-                    ? 'w-14 h-14 bg-[#007AFF] text-white rounded-full -translate-y-6 shadow-[0_0_15px_rgba(0,122,255,0.4)] border-[5px] border-[#18181b] scale-110'
+                    ? 'w-14 h-14 bg-[#007AFF] text-white rounded-full -translate-y-6 shadow-[0_0_15px_rgba(0,122,255,0.4)] border-[5px] border-[#0B1221] scale-110'
                     : 'w-12 h-12 text-zinc-500 hover:text-zinc-300 active:scale-95'
                 }
             `}

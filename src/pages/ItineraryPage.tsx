@@ -360,7 +360,7 @@ export default function ItineraryPage() {
 
                 <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
 
-                <div className="relative z-10 flex justify-between items-end pb-12">
+                <div className="relative z-10 flex justify-between items-end pb-8">
                     <div>
                         <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
                         <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
@@ -379,7 +379,7 @@ export default function ItineraryPage() {
             </header>
 
             {/* Sticky Actions Bar */}
-            <div className="sticky top-0 z-30 transition-all -mt-6">
+            <div className="sticky top-0 z-30 transition-all -mt-5">
                 {/* Collapse Toggle Tab */}
                 <div className="flex justify-center relative z-20">
                     <button
@@ -401,7 +401,7 @@ export default function ItineraryPage() {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                <div className="pb-2">
+                                <div className="pt-3 pb-2">
                                     <CategoryFilter selected={category} onSelect={setCategory} />
                                 </div>
 
