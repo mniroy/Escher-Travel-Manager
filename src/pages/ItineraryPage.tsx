@@ -7,6 +7,8 @@ import { TripSettingsModal } from '../components/TripSettingsModal';
 import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent } from 'framer-motion';
+import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
+import { format, addDays } from 'date-fns';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -32,6 +34,9 @@ export default function ItineraryPage() {
 
     // Edit Mode State
     const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
+
+    // Selector Modal State
+    const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
     const addToHistory = (currentEvents: TimelineEvent[]) => {
         setHistory(prev => {
@@ -484,7 +489,7 @@ export default function ItineraryPage() {
                                 {/* Insert Zone BEFORE item */}
                                 {isEditing && (
                                     <div
-                                        onClick={() => openModalAt(index)}
+                                        onClick={() => openSelectorAt(index)}
                                         className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
                                     >
                                         <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
@@ -521,7 +526,7 @@ export default function ItineraryPage() {
                                 <MapPin size={24} className="text-[#007AFF]" />
                             </div>
                             <button
-                                onClick={() => openModalAt(0)}
+                                onClick={() => openSelectorAt(0)}
                                 className="px-8 py-3 bg-[#007AFF] text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/30 hover:bg-[#0071EB] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                             >
                                 <Plus size={16} strokeWidth={3} />
@@ -533,7 +538,7 @@ export default function ItineraryPage() {
                     {/* Final Insert Zone at the end */}
                     {isEditing && filteredEvents.length > 0 && (
                         <div
-                            onClick={() => openModalAt(filteredEvents.length)}
+                            onClick={() => openSelectorAt(filteredEvents.length)}
                             className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
                         >
                             + Add to End

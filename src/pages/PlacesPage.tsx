@@ -1,16 +1,19 @@
 import { Layout } from '../components/Layout';
-import { MapPin, Search, Star, ArrowRight } from 'lucide-react';
+import { MapPin, Search, Star, ArrowRight, Plus } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
+import { TimelineEvent } from '../components/TimelineItem';
 
 export default function PlacesPage() {
-    const { events } = useTrip();
+    const { events, setEvents } = useTrip(); // Need setEvents
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
     const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const { scrollY } = useScroll();
     const bgY = useTransform(scrollY, [0, 500], ['0%', '20%']);
@@ -35,6 +38,26 @@ export default function PlacesPage() {
             }
         }
     }, [events]);
+
+    const handleSavePlace = (activity: NewActivity) => {
+        const newEvent: TimelineEvent = {
+            id: crypto.randomUUID(),
+            type: activity.type,
+            title: activity.title,
+            time: '', // No time for saved places
+            description: activity.description,
+            rating: activity.rating,
+            reviews: activity.reviews,
+            image: activity.image,
+            googleMapsLink: activity.googleMapsLink,
+            duration: activity.duration,
+            status: 'Saved', // Mark as Saved
+            dayOffset: -1 // Mark as Unscheduled
+        };
+
+        setEvents(prev => [...prev, newEvent]);
+        setIsAddModalOpen(false);
+    };
 
     // Filter "Places" (Events that are locations) and matches search
     const filteredPlaces = events
@@ -81,17 +104,25 @@ export default function PlacesPage() {
                     <div className="bg-zinc-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] min-h-screen pt-2">
 
                         {/* Search & Filter Sticky Header */}
-                        <div className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md pt-6 pb-4 px-6 rounded-t-[2.5rem]">
+                        <div className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md pt-6 pb-4 px-6 rounded-t-[2.5rem] border-b border-zinc-100">
                             <div className="space-y-4">
-                                <div className="relative shadow-lg shadow-zinc-200/50 rounded-2xl">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
-                                    <input
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Search places..."
-                                        className="w-full bg-white border border-zinc-100 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-2 focus:ring-blue-100 placeholder:text-zinc-400 font-medium transition-all"
-                                    />
+                                <div className="flex gap-2">
+                                    <div className="relative shadow-lg shadow-zinc-200/50 rounded-2xl flex-grow">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search places..."
+                                            className="w-full bg-white border border-zinc-100 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-2 focus:ring-blue-100 placeholder:text-zinc-400 font-medium transition-all"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setIsAddModalOpen(true)}
+                                        className="bg-[#007AFF] w-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20 hover:bg-[#0061c2] active:scale-95 transition-all"
+                                    >
+                                        <Plus size={24} />
+                                    </button>
                                 </div>
 
                                 <div className="overflow-x-auto no-scrollbar pb-1">
@@ -174,6 +205,12 @@ export default function PlacesPage() {
                     </div>
                 </div>
             </div>
+
+            <AddActivityModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onSave={handleSavePlace}
+            />
         </Layout>
     );
 }
