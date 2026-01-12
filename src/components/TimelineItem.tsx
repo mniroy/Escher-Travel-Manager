@@ -58,7 +58,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
             <div className="flex flex-col items-center">
                 {/* Connector Line Extension */}
                 {hasTravelTime && (
-                    <div className="absolute -top-16 h-16 w-[2px] bg-blue-100/50 left-1/2 -translate-x-1/2" />
+                    <div className="absolute -top-16 h-16 w-[2px] bg-blue-200 left-1/2 -translate-x-1/2" />
                 )}
 
                 {/* Travel Time Badge */}
@@ -79,7 +79,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                     {icon}
                 </div>
 
-                {!isLast && <div className="w-[2px] bg-blue-100/50 flex-grow my-2 min-h-[40px] rounded-full" />}
+                {!isLast && <div className="w-[2px] bg-blue-200 flex-grow my-2 min-h-[40px] rounded-full" />}
             </div>
 
             {/* Content Card */}
@@ -87,7 +87,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
 
                 {/* Custom Flight Ticket UI */}
                 {event.id === '1' && event.type === 'Transport' ? (
-                    <div className="rounded-[1.75rem] overflow-hidden shadow-lg mb-2 group/card cursor-pointer transition-transform hover:scale-[1.01]" onClick={onClick}>
+                    <div className="rounded-[1.75rem] overflow-hidden shadow-xl shadow-blue-900/5 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.01]" onClick={onClick}>
                         {/* Top Section - Dark Navy */}
                         <div className="bg-[#0B1221] p-6 relative">
                             {/* Flight Path Visual */}
@@ -187,7 +187,7 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
 
                     ) : (
                         // Two-Tone Design (Reference: Flight Card)
-                        <div className="rounded-[1.75rem] overflow-hidden shadow-lg mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
+                        <div className="rounded-[1.75rem] overflow-hidden shadow-xl shadow-blue-900/5 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
                             {/* Top Section: Dark Navy or Image */}
                             <div className="p-6 pb-6 relative overflow-hidden h-full min-h-[160px] flex flex-col justify-between">
                                 {/* Background Image */}

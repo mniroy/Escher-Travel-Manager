@@ -400,12 +400,12 @@ export default function ItineraryPage() {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                <div className="pb-2">
+                                <div className="pb-2 border-b border-zinc-100">
                                     <CategoryFilter selected={category} onSelect={setCategory} />
                                 </div>
 
                                 {/* Date Selector */}
-                                <div className="flex gap-2 flex-wrap justify-center px-6 py-4 pb-5">
+                                <div className="flex gap-2 flex-wrap justify-start px-6 py-4 pb-5 overflow-x-auto no-scrollbar">
                                     {tripDates.map((dateObj, i) => {
                                         const isSelected = selectedDayOffsets.includes(dateObj.offset);
                                         return (
@@ -435,8 +435,8 @@ export default function ItineraryPage() {
                                             className={`
                                             h-8 px-3 rounded-full flex items-center gap-1.5 text-[10px] font-bold transition-all
                                             ${isOptimizing
-                                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-wait'
-                                                    : 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-105 active:scale-95'
+                                                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
+                                                    : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
                                                 }
                                         `}
                                         >
