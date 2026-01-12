@@ -1,9 +1,8 @@
 
 import { Layout } from '../components/Layout';
-import { FileText, Plus, Tag, Upload, X, Check, Search, Download, Trash2 } from 'lucide-react'; // Added Trash2
+import { FileText, Plus, Tag, Upload, X, Check, Search, Trash2 } from 'lucide-react'; // Added Trash2
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
-import { TimelineEvent } from '../components/TimelineItem';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase'; // Import supabase
 
@@ -92,7 +91,7 @@ export default function DocumentsPage() {
         try {
             // 1. Upload to Supabase Storage
             const fileName = `${currentTripId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize filename
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from('trip_docs')
                 .upload(fileName, file);
 
