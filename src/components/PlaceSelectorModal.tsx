@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, Search, Plus, Minus, MapPin } from 'lucide-react';
+import { Search, Plus, Minus, MapPin } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
 import { motion } from 'framer-motion';
 
