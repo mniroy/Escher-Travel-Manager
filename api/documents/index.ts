@@ -2,9 +2,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+if (!supabaseUrl || !supabaseKey) {
+    console.error('SERVER ERROR: Supabase keys missing in documents/index');
+}
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json(data);
     } catch (error) {
-        return res.status(500).json({ error: 'Failed to fetch documents' });
+        console.error('Error fetching documents:', error);
+        return res.status(500).json({ error: 'Failed to fetch documents', details: String(error) });
     }
 }

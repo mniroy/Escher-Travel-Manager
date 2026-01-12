@@ -4,14 +4,27 @@ import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Supabase
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Initialize Supabase
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('SERVER ERROR: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing.');
+}
+
+const supabase = createClient(supabaseUrl || 'MISSING_URL', supabaseKey || 'MISSING_KEY');
 
 // Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+if (!apiKey) {
+    console.error('SERVER ERROR: GOOGLE_GENERATIVE_AI_API_KEY is missing in environment variables.');
+}
+const genAI = new GoogleGenerativeAI(apiKey || 'MISSING_KEY');
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (!apiKey) {
+        return res.status(500).json({ error: 'Server Configuration Error: Missing Gemini API Key' });
+    }
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -21,6 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
+    }
+
+    if (!req.body) {
+        return res.status(400).json({ error: 'Missing request body' });
     }
 
     const { fileUrl, tripId, fileName, fileType } = req.body;
@@ -33,37 +50,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('Processing document:', fileName);
 
         // 1. Analyze with Gemini
-        // Using gemini-1.5-flash as it is the current standard available flash model in most keys.
-        // If user specifically has access to 2.5, they can swap it. 
-        // Plan says 2.5, so we try that string, but fallback logic might be needed if it fails.
-        // For now, sticking to the plan: "gemini-2.5-flash"
+        // Using 'gemini-2.5-flash' as requested. 
+        // 'gemini-2.5-flash' might not be available yet.
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
+
             Analyze this travel document.
             File Name: "${fileName}"
             File Type: "${fileType}"
             
             Extract the following information in JSON format:
-            1. category: One of ['Transport', 'Accommodation', 'Identity', 'Finance', 'Other']
-            2. title: A clean, descriptive title (e.g., "Flight to Bali", "Hotel Booking")
-            3. date: A relevant date string (YYYY-MM-DD or readable text like "2 minutes ago" if unknown, but prefer real dates found in doc context or "Today")
-            4. isBoardingPass: boolean
-            5. eventDetails: (Optional, only if isBoardingPass is true)
-               - type: 'Transport'
-               - title: 'Flight ' + Airline + FlightNumber
-               - time: Start Time (e.g. "10:00 AM")
-               - endTime: Arrival Time (e.g. "01:00 PM")
-               - description: "Seat: X, Gate: Y. From A to B."
-               - duration: Estimated duration text
+        1. category: One of['Transport', 'Accommodation', 'Identity', 'Finance', 'Other']
+        2. title: A clean, descriptive title(e.g., "Flight to Bali", "Hotel Booking")
+        3. date: A relevant date string(YYYY - MM - DD or readable text like "2 minutes ago" if unknown, but prefer real dates found in doc context or "Today")
+        4. isBoardingPass: boolean
+        5. eventDetails: (Optional, only if isBoardingPass is true)
+        - type: 'Transport'
+            - title: 'Flight ' + Airline + FlightNumber
+                - time: Start Time(e.g. "10:00 AM")
+                    - endTime: Arrival Time(e.g. "01:00 PM")
+                        - description: "Seat: X, Gate: Y. From A to B."
+                            - duration: Estimated duration text
         `;
 
-        const result = await model.generateContent(prompt);
+        // Fetch the file content
+        const fileResponse = await fetch(fileUrl);
+        if (!fileResponse.ok) {
+            throw new Error(`Failed to fetch file: ${fileResponse.statusText} `);
+        }
+        const fileBuffer = await fileResponse.arrayBuffer();
+        const base64Data = Buffer.from(fileBuffer).toString('base64');
+
+        const imagePart = {
+            inlineData: {
+                data: base64Data,
+                mimeType: fileType
+            }
+        };
+
+        const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
         const text = response.text();
 
         // Parse JSON from markdown code block if present
-        const jsonBlock = text.match(/```json\n([\s\S]*?)\n```/);
+        const jsonBlock = text.match(/```json\n([\s\S] *?) \n```/);
         const parsedData = jsonBlock ? JSON.parse(jsonBlock[1]) : JSON.parse(text);
 
         console.log('Gemini Analysis:', parsedData);
@@ -112,7 +143,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
     } catch (error) {
-        console.error('Error processing document:', error);
-        return res.status(500).json({ error: error instanceof Error ? error.message : 'Processing failed' });
+        console.error('Error processing document (Detailed):', error);
+        return res.status(500).json({
+            error: 'Processing failed',
+            details: error instanceof Error ? error.message : String(error)
+        });
     }
 }
