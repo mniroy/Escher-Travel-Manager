@@ -380,17 +380,16 @@ export default function ItineraryPage() {
 
             {/* Sticky Actions Bar */}
             <div className="sticky top-0 z-30 transition-all -mt-5">
-                {/* Collapse Toggle Tab */}
-                <div className="flex justify-center relative z-20">
-                    <button
+                <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-[2rem] overflow-hidden shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                    {/* Check/Collapse Toggle Area */}
+                    <div
+                        className="w-full flex justify-center pt-3 pb-1 cursor-pointer active:opacity-70 transition-opacity"
                         onClick={() => setIsControlsExpanded(!isControlsExpanded)}
-                        className="bg-zinc-50/95 backdrop-blur-xl border-t border-x border-zinc-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] rounded-t-2xl w-16 h-6 flex items-center justify-center text-zinc-400 hover:text-[#007AFF] transition-all active:scale-95"
                     >
-                        {isControlsExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
-                    </button>
-                </div>
-
-                <div className="bg-zinc-50/95 backdrop-blur-xl border-b border-zinc-200 shadow-sm rounded-t-xl overflow-hidden mt-[-1px]">
+                        <div className="w-16 h-6 flex items-center justify-center bg-zinc-100/50 rounded-full text-zinc-400 hover:text-[#007AFF] transition-colors">
+                            {isControlsExpanded ? <ChevronDown size={16} strokeWidth={2.5} /> : <ChevronUp size={16} strokeWidth={2.5} />}
+                        </div>
+                    </div>
 
                     <AnimatePresence>
                         {isControlsExpanded && (
@@ -401,7 +400,7 @@ export default function ItineraryPage() {
                                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                                 className="overflow-hidden"
                             >
-                                <div className="pt-3 pb-2">
+                                <div className="pb-2">
                                     <CategoryFilter selected={category} onSelect={setCategory} />
                                 </div>
 

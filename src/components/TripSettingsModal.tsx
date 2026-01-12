@@ -1,4 +1,4 @@
-import { X, Calendar, Clock, MapPin } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Minus, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface TripSettings {
@@ -36,14 +36,14 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                 </button>
 
                 <div className="mb-6">
-                    <h2 className="text-xl font-bold text-white mb-1">Trip Settings</h2>
-                    <p className="text-zinc-500 text-sm">Update your trip details</p>
+                    <h2 className="text-lg font-bold text-white mb-1">Trip Settings</h2>
+                    <p className="text-zinc-500 text-xs">Update your trip details</p>
                 </div>
 
                 <div className="space-y-5">
                     {/* Trip Name */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">Trip Name</label>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Trip Name</label>
                         <div className="relative group">
                             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#007AFF] transition-colors" size={18} />
                             <input
@@ -59,7 +59,7 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                     <div className="grid grid-cols-2 gap-4">
                         {/* Start Date */}
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">Start Date</label>
+                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Start Date</label>
                             <div className="relative group">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#007AFF] transition-colors" size={18} />
                                 <input
@@ -73,17 +73,26 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
 
                         {/* Duration */}
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">Duration (Days)</label>
-                            <div className="relative group">
-                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#007AFF] transition-colors" size={18} />
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="60"
-                                    value={settings.duration}
-                                    onChange={(e) => setSettings({ ...settings, duration: parseInt(e.target.value) || 1 })}
-                                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium"
-                                />
+                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Duration (Days)</label>
+                            <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5 pl-3">
+                                <Clock className="text-zinc-500" size={16} />
+                                <div className="flex-grow text-center font-bold text-white text-sm">
+                                    {settings.duration} Days
+                                </div>
+                                <div className="flex bg-zinc-800 rounded-lg p-0.5 gap-0.5">
+                                    <button
+                                        onClick={() => setSettings(s => ({ ...s, duration: Math.max(1, s.duration - 1) }))}
+                                        className="w-7 h-7 flex items-center justify-center rounded-md bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors active:scale-95"
+                                    >
+                                        <Minus size={14} strokeWidth={2.5} />
+                                    </button>
+                                    <button
+                                        onClick={() => setSettings(s => ({ ...s, duration: Math.min(60, s.duration + 1) }))}
+                                        className="w-7 h-7 flex items-center justify-center rounded-md bg-[#007AFF] hover:bg-blue-600 text-white transition-colors active:scale-95"
+                                    >
+                                        <Plus size={14} strokeWidth={2.5} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -58,15 +58,15 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
             <div className="flex flex-col items-center">
                 {/* Connector Line Extension */}
                 {hasTravelTime && (
-                    <div className="absolute -top-16 h-16 w-[2px] bg-zinc-800 left-1/2 -translate-x-1/2" />
+                    <div className="absolute -top-16 h-16 w-[2px] bg-blue-100/50 left-1/2 -translate-x-1/2" />
                 )}
 
                 {/* Travel Time Badge */}
                 {hasTravelTime && (
                     <div className={`absolute -top-16 h-16 left-1/2 -translate-x-1/2 flex items-center justify-center z-10 ${isSkipped ? 'opacity-30' : ''}`}>
-                        <div className="bg-[#0B1221] border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide flex items-center gap-1.5">
-                                {event.travelMode === 'walk' ? <Footprints size={10} className="opacity-70" /> : <Car size={10} className="opacity-70" />}
+                        <div className="bg-zinc-100 border border-zinc-200 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm whitespace-nowrap">
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                {event.travelMode === 'walk' ? <Footprints size={10} className="text-zinc-500" /> : <Car size={10} className="text-zinc-500" />}
                                 {event.travelTime}
                             </span>
                         </div>
@@ -74,12 +74,12 @@ export function TimelineItem({ event, isLast, icon, onClick, onCheckIn, onSkip }
                 )}
 
                 <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center z-10 shrink-0 shadow-sm relative transition-all duration-300 ${isCheckedIn ? 'bg-[#007AFF] border-[#007AFF] text-white' :
-                    isSkipped ? 'bg-zinc-900 border-zinc-800 text-zinc-600' : 'bg-[#0B1221] border-zinc-800 text-zinc-400 group-hover:border-[#007AFF] group-hover:text-[#007AFF]'
+                    isSkipped ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-blue-100 text-[#007AFF] shadow-md shadow-blue-500/10'
                     }`}>
                     {icon}
                 </div>
 
-                {!isLast && <div className="w-[2px] bg-zinc-800 flex-grow my-2 min-h-[40px] rounded-full" />}
+                {!isLast && <div className="w-[2px] bg-blue-100/50 flex-grow my-2 min-h-[40px] rounded-full" />}
             </div>
 
             {/* Content Card */}
