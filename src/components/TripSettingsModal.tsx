@@ -66,7 +66,7 @@ export function TripSettingsModal({ isOpen, onClose, onSave, initialSettings }: 
                                     type="date"
                                     value={settings.startDate}
                                     onChange={(e) => setSettings({ ...settings, startDate: e.target.value })}
-                                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-sm [color-scheme:dark]"
+                                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] transition-all font-medium text-xs [color-scheme:dark]"
                                 />
                             </div>
                         </div>
