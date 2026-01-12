@@ -1,14 +1,40 @@
 import { Layout } from '../components/Layout';
 import { MapPin, Search, Star, ArrowRight } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 
 export default function PlacesPage() {
     const { events } = useTrip();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
+    const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80');
+
+    const { scrollY } = useScroll();
+    const bgY = useTransform(scrollY, [0, 500], ['0%', '20%']);
+    const bgOpacity = useTransform(scrollY, [0, 300], [1, 0.3]);
+
+    // Dynamic Header Image Cycle
+    useEffect(() => {
+        const images = events
+            .filter(e => e.image)
+            .map(e => e.image as string);
+
+        if (images.length > 0) {
+            setBgImage(images[0]);
+
+            if (images.length > 1) {
+                let i = 0;
+                const interval = setInterval(() => {
+                    i = (i + 1) % images.length;
+                    setBgImage(images[i]);
+                }, 5000);
+                return () => clearInterval(interval);
+            }
+        }
+    }, [events]);
 
     // Filter "Places" (Events that are locations) and matches search
     const filteredPlaces = events
@@ -25,94 +51,128 @@ export default function PlacesPage() {
 
     return (
         <Layout>
-            <div className="relative h-56 w-full group overflow-hidden">
-                <img
-                    src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80"
-                    alt="Bali"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black"></div>
-
-                <div className="absolute bottom-6 left-6">
-                    <h1 className="text-4xl font-bold text-white mb-1 shadow-lg">Places</h1>
-                    <p className="text-zinc-200 text-sm font-medium shadow-lg opacity-90">Your favorite spots from the itinerary.</p>
-                </div>
-            </div>
-
-            <div className="px-6 py-6 pb-24">
-                <div className="space-y-4 mb-8">
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search places..."
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-zinc-700 placeholder:text-zinc-600"
+            <div className="relative min-h-screen bg-zinc-50 pb-24">
+                {/* Parallax Header */}
+                <div className="h-[45vh] w-full fixed top-0 left-0 right-0 z-0 overflow-hidden">
+                    <AnimatePresence mode="popLayout">
+                        <motion.img
+                            key={bgImage}
+                            src={bgImage}
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.5 }}
+                            style={{ y: bgY, opacity: bgOpacity }}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            alt="Header Background"
                         />
-                    </div>
+                    </AnimatePresence>
+                    <div className="absolute inset-0 bg-[#0B1221]/40 z-10 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-50 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
 
-                    <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
+                    <div className="absolute bottom-20 left-6 z-20">
+                        <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Places</h1>
+                        <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Your curated list of must-visit spots.</p>
+                    </div>
                 </div>
 
-                {filteredPlaces.length > 0 ? (
-                    <div className="grid gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {filteredPlaces.map(place => (
-                            <Link
-                                to={`/place/${place.id}`}
-                                key={place.id}
-                                className="block group"
-                            >
-                                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden active:scale-[0.98] transition-all hover:bg-zinc-900 hover:border-zinc-700">
-                                    <div className="h-32 bg-zinc-800 relative">
-                                        <img
-                                            src={`https://source.unsplash.com/random/400x200?${place.type.toLowerCase()}`}
-                                            className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
-                                            alt={place.title}
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                            }}
-                                        />
-                                        <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-white uppercase tracking-wider">
-                                            {place.type}
-                                        </div>
-                                    </div>
-                                    <div className="p-4">
-                                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{place.title}</h3>
-                                        <p className="text-sm text-zinc-400 line-clamp-2 mb-3">{place.description}</p>
+                {/* Content Layer */}
+                <div className="relative z-10 mt-[35vh]">
+                    <div className="bg-zinc-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] min-h-screen pt-2">
 
-                                        <div className="flex items-center justify-between mt-2">
-                                            <div className="flex items-center gap-1 text-yellow-500 text-xs font-bold">
-                                                <Star size={12} fill="currentColor" />
-                                                <span>{place.rating || 'New'}</span>
+                        {/* Search & Filter Sticky Header */}
+                        <div className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md pt-6 pb-4 px-6 rounded-t-[2.5rem]">
+                            <div className="space-y-4">
+                                <div className="relative shadow-lg shadow-zinc-200/50 rounded-2xl">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search places..."
+                                        className="w-full bg-white border border-zinc-100 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-900 focus:outline-none focus:border-blue-200 focus:ring-2 focus:ring-blue-100 placeholder:text-zinc-400 font-medium transition-all"
+                                    />
+                                </div>
+
+                                <div className="overflow-x-auto no-scrollbar pb-1">
+                                    <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-6 pb-24">
+                            {filteredPlaces.length > 0 ? (
+                                <div className="grid gap-5 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                                    {filteredPlaces.map(place => (
+                                        <Link
+                                            to={`/place/${place.id}`}
+                                            key={place.id}
+                                            className="block group"
+                                        >
+                                            <div className="bg-white rounded-[1.75rem] overflow-hidden shadow-xl shadow-blue-900/5 hover:shadow-2xl hover:shadow-blue-900/10 transition-all border border-zinc-100 hover:scale-[1.01] active:scale-[0.99]">
+                                                <div className="h-40 bg-zinc-100 relative overflow-hidden">
+                                                    {place.image ? (
+                                                        <img
+                                                            src={place.image}
+                                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                            alt={place.title}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-300">
+                                                            <MapPin size={40} />
+                                                        </div>
+                                                    )}
+
+                                                    <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
+                                                    <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/20 shadow-sm">
+                                                        {place.type}
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-5">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight group-hover:text-[#007AFF] transition-colors line-clamp-1">{place.title}</h3>
+                                                        <div className="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded text-yellow-600 font-bold text-xs">
+                                                            <Star size={10} fill="currentColor" />
+                                                            <span>{place.rating || 'New'}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="text-xs text-zinc-500 line-clamp-2 mb-4 font-medium leading-relaxed">{place.description}</p>
+
+                                                    <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
+                                                        <span className="text-[10px] font-bold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-md">
+                                                            {place.reviews ? `${place.reviews} reviews` : 'No reviews'}
+                                                        </span>
+                                                        <span className="text-xs text-[#007AFF] font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                                                            View Details <ArrowRight size={14} />
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <span className="text-xs text-primary font-bold flex items-center gap-1">
-                                                View Details <ArrowRight size={12} />
-                                            </span>
-                                        </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-60">
+                                    <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mb-2">
+                                        <MapPin className="text-zinc-300" size={32} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-zinc-400">
+                                            {searchQuery ? 'No matches found' : 'No places yet'}
+                                        </h3>
+                                        <p className="text-zinc-400 text-sm max-w-[200px] mx-auto mt-1">
+                                            {searchQuery
+                                                ? 'Try adjusting your search terms.'
+                                                : 'Add activities to see them here.'}
+                                        </p>
                                     </div>
                                 </div>
-                            </Link>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                        <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center">
-                            <MapPin className="text-zinc-600" size={32} />
+                            )}
                         </div>
-                        <div>
-                            <h3 className="text-lg font-medium text-white">
-                                {searchQuery ? 'No matches found' : 'No places yet'}
-                            </h3>
-                            <p className="text-zinc-500 max-w-xs mx-auto mt-1">
-                                {searchQuery
-                                    ? 'Try adjusting your search terms.'
-                                    : 'Add activities to your itinerary to see them here.'}
-                            </p>
-                        </div>
-                        {/* No button here as requested */}
                     </div>
-                )}
+                </div>
             </div>
         </Layout>
     );

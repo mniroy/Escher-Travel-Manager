@@ -1,7 +1,8 @@
 import { Layout } from '../components/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, Utensils, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Star, Clock, Image as ImageIcon, Utensils, MessageSquare, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useTrip } from '../context/TripContext';
 
 export default function PlaceDetailPage() {
@@ -92,8 +93,9 @@ export default function PlaceDetailPage() {
         address: fetchedPlace?.formattedAddress || fetchedPlace?.address || initialPlace.address,
         rating: fetchedPlace?.rating || initialPlace.rating,
         reviews: fetchedPlace?.userRatingCount || fetchedPlace?.reviewCount || initialPlace.reviews,
-        status: fetchedPlace?.regularOpeningHours?.openNow === true ? 'Open now' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'Closed' : initialPlace.status),
-        statusColor: fetchedPlace?.regularOpeningHours?.openNow === true ? 'text-emerald-500' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'text-red-500' : 'text-zinc-500'),
+        itineraryStatus: (initialPlace.status && initialPlace.status !== 'Unknown') ? initialPlace.status : null,
+        liveStatus: fetchedPlace?.regularOpeningHours?.openNow === true ? 'Open now' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'Closed' : null),
+        liveStatusColor: fetchedPlace?.regularOpeningHours?.openNow === true ? 'text-emerald-500' : (fetchedPlace?.regularOpeningHours?.openNow === false ? 'text-red-500' : 'text-zinc-500'),
         closeTime: fetchedPlace?.regularOpeningHours?.weekdayDescriptions?.[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || '',
         images: (fetchedPlace?.photoUrls && fetchedPlace.photoUrls.length > 0) ? fetchedPlace.photoUrls : (fetchedPlace?.photos?.filter((p: string) => typeof p === 'string') || initialPlace.images),
         userReviews: fetchedPlace?.reviews || [], // Google reviews format
@@ -101,27 +103,29 @@ export default function PlaceDetailPage() {
         menu: [] // API doesn't provide menu usually
     };
 
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
     return (
         <Layout showNav={false}>
             {/* Hero Header */}
-            <div className="relative h-72 w-full bg-zinc-900 group">
+            <div className="relative h-72 w-full bg-zinc-200 group">
                 {display.images.length > 0 ? (
                     <img
                         src={display.images[0]}
-                        className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+                        className="w-full h-full object-cover opacity-100"
                         alt="Place Hero"
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                        <ImageIcon size={48} className="text-zinc-600" />
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-100">
+                        <ImageIcon size={48} className="text-zinc-300" />
                     </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-zinc-950"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-zinc-50/90"></div>
 
                 <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-20">
                     <button
                         onClick={() => navigate(-1)}
-                        className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                        className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-lg"
                     >
                         <ArrowLeft size={24} />
                     </button>
@@ -129,24 +133,34 @@ export default function PlaceDetailPage() {
             </div>
 
             <div className="px-6 -mt-12 relative z-10 pb-24">
-                <div className="bg-zinc-900/90 backdrop-blur-xl rounded-3xl p-6 border border-white/5 shadow-2xl mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2 leading-tight">{display.title}</h1>
-                    <div className="flex items-center text-zinc-400 text-sm gap-2 mb-6">
+                <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 border border-white/40 shadow-xl shadow-zinc-200/50 mb-8">
+                    <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 leading-tight">{display.title}</h1>
+                    <div className="flex items-center text-zinc-500 text-sm gap-2 mb-6 font-medium">
                         <MapPin size={16} className="text-[#007AFF]" />
                         <span className="line-clamp-2">{display.address}</span>
                     </div>
 
-                    <div className="flex justify-between items-center border-t border-white/5 pt-5">
+                    <div className="flex justify-between items-center border-t border-zinc-100 pt-5">
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1.5 text-yellow-500 mb-0.5">
-                                <Star size={16} fill="currentColor" />
-                                <span className="font-bold text-white">{display.rating || 'New'}</span>
-                                <span className="text-zinc-500 text-xs font-medium">({display.reviews || 0} reviews)</span>
+                                <Star size={16} fill="currentColor" className="text-yellow-400" />
+                                <span className="font-bold text-zinc-900">{display.rating || 'New'}</span>
+                                <span className="text-zinc-400 text-xs font-medium">({display.reviews || 0} reviews)</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs">
-                                <Clock size={14} className={display.statusColor} />
-                                <span className={`${display.statusColor} font-bold`}>{display.status}</span>
-                                {display.closeTime && <span className="text-zinc-500 hidden sm:inline">– {display.closeTime}</span>}
+                            <div className="flex flex-col gap-0.5">
+                                {display.itineraryStatus && (
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-500">
+                                        <Clock size={14} />
+                                        <span>{display.itineraryStatus}</span>
+                                    </div>
+                                )}
+                                {display.liveStatus && (
+                                    <div className="flex items-center gap-1.5 text-xs font-bold">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${display.liveStatus === 'Open now' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                        <span className={display.liveStatusColor}>{display.liveStatus}</span>
+                                        {display.closeTime && <span className="text-zinc-400 font-medium hidden sm:inline">– {display.closeTime}</span>}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {display.googleMapsLink && (
@@ -154,7 +168,7 @@ export default function PlaceDetailPage() {
                                 href={display.googleMapsLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="bg-[#007AFF] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
+                                className="bg-[#007AFF] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-[#0062cc] active:scale-95 transition-all flex items-center gap-2"
                             >
                                 Directions <ArrowRight size={14} />
                             </a>
@@ -163,10 +177,9 @@ export default function PlaceDetailPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-6 mb-6 border-b border-white/5 px-2 overflow-x-auto no-scrollbar">
+                <div className="flex gap-6 mb-6 border-b border-zinc-200 px-2 overflow-x-auto no-scrollbar">
                     <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<ImageIcon size={18} />} label="Photos" />
                     <TabButton active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} icon={<MessageSquare size={18} />} label="Reviews" />
-                    {/* Only show menu if we have items, otherwise keep it hidden as it's usually empty for API data */}
                     {display.menu.length > 0 && <TabButton active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} icon={<Utensils size={18} />} label="Menu" />}
                 </div>
 
@@ -181,10 +194,17 @@ export default function PlaceDetailPage() {
                     {!loading && activeTab === 'photos' && (
                         <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-500">
                             {display.images.map((img: string, i: number) => (
-                                <img key={i} src={img} className="rounded-2xl h-40 w-full object-cover border border-white/5 hover:opacity-90 transition-opacity bg-zinc-800" alt="Gallery" />
+                                <motion.img
+                                    key={i}
+                                    src={img}
+                                    layoutId={`img-${i}`}
+                                    onClick={() => setSelectedImage(img)}
+                                    className="rounded-2xl h-40 w-full object-cover cursor-zoom-in hover:opacity-95 transition-opacity bg-zinc-100 shadow-sm"
+                                    alt="Gallery"
+                                />
                             ))}
                             {display.images.length === 0 && (
-                                <div className="col-span-2 text-center py-10 text-zinc-500">
+                                <div className="col-span-2 text-center py-10 text-zinc-400 font-medium">
                                     No photos available
                                 </div>
                             )}
@@ -195,28 +215,32 @@ export default function PlaceDetailPage() {
                         <div className="space-y-4 animate-in fade-in duration-500">
                             {display.userReviews.length > 0 ? (
                                 display.userReviews.map((review: any, i: number) => (
-                                    <div key={i} className="p-4 bg-zinc-900/50 rounded-2xl border border-white/5">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                {review.authorAttribution?.photoUri && (
-                                                    <img src={review.authorAttribution.photoUri} className="w-6 h-6 rounded-full" alt="" />
+                                    <div key={i} className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                {review.authorAttribution?.photoUri ? (
+                                                    <img src={review.authorAttribution.photoUri} className="w-8 h-8 rounded-full border border-zinc-100" alt="" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-blue-50 text-[#007AFF] flex items-center justify-center font-bold text-xs">
+                                                        {(review.authorAttribution?.displayName || review.name || 'G')[0]}
+                                                    </div>
                                                 )}
-                                                <div className="text-white font-bold text-sm">
+                                                <div className="text-zinc-900 font-bold text-sm">
                                                     {review.authorAttribution?.displayName || review.name || 'Google User'}
                                                 </div>
                                             </div>
-                                            <div className="text-xs text-zinc-500">{review.relativePublishTimeDescription}</div>
+                                            <div className="text-[10px] font-bold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-full">{review.relativePublishTimeDescription}</div>
                                         </div>
-                                        <div className="flex text-yellow-500 mb-2">
+                                        <div className="flex text-yellow-400 mb-2">
                                             {[...Array(5)].map((_, i) => (
-                                                <Star key={i} size={12} fill={i < (review.rating || 0) ? "currentColor" : "none"} className={i < (review.rating || 0) ? "" : "text-zinc-700"} />
+                                                <Star key={i} size={14} fill={i < (review.rating || 0) ? "currentColor" : "none"} className={i < (review.rating || 0) ? "" : "text-zinc-200"} />
                                             ))}
                                         </div>
-                                        <p className="text-sm text-zinc-400 leading-relaxed text-left">{review.text?.text || review.text}</p>
+                                        <p className="text-sm text-zinc-600 leading-relaxed text-left font-medium">{review.text?.text || review.text}</p>
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-10 text-zinc-500">
+                                <div className="text-center py-10 text-zinc-400 font-medium">
                                     No reviews available
                                 </div>
                             )}
@@ -235,6 +259,31 @@ export default function PlaceDetailPage() {
                     )}
                 </div>
             </div>
+
+            {/* Lightbox Overlay */}
+            <AnimatePresence>
+                {selectedImage && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedImage(null)}
+                        className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+                    >
+                        <button
+                            className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
+                        >
+                            <X size={32} />
+                        </button>
+                        <motion.img
+                            layoutId={display.images.includes(selectedImage) ? `img-${display.images.indexOf(selectedImage)}` : 'selected-img'}
+                            src={selectedImage}
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                            alt="Full screen"
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </Layout>
     );
 }
@@ -243,9 +292,9 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
     return (
         <button
             onClick={onClick}
-            className={`flex items-center gap-2 pb-3 px-1 transition-all border-b-2 font-medium text-sm ${active
+            className={`flex items-center gap-2 pb-3 px-1 transition-all border-b-2 font-bold text-sm ${active
                 ? 'border-[#007AFF] text-[#007AFF]'
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                : 'border-transparent text-zinc-400 hover:text-zinc-600'
                 }`}
         >
             {icon}
