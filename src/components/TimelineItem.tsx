@@ -1,6 +1,6 @@
-import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin } from 'lucide-react';
+import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin } from 'lucide-react';
 import { ReactNode, useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { TimePicker } from './TimePicker';
 import { DurationPicker } from './DurationPicker';
@@ -21,7 +21,6 @@ const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) =>
     let dayStr: string | undefined;
 
     if (selectedDayName) {
-        // Map short day names to full names if needed, or just check start
         const fullDayMap: Record<string, string> = {
             'Sun': 'Sunday', 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
             'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday'
@@ -30,44 +29,54 @@ const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) =>
         dayStr = hours.find(h => h.startsWith(fullName));
     }
 
-    // Fallback if no specific day or not found
     if (!dayStr) {
+        // Fallback: first non-closed or first
         dayStr = hours.find(h => !h.includes("Closed")) || hours[0];
     }
 
     if (!dayStr) return null;
 
-    // Handle "Open 24 hours"
-    if (dayStr.toLowerCase().includes("24 hours")) {
-        return { text: dayStr, open: 0, close: 24 * 60 };
+    const lowerStr = dayStr.toLowerCase();
+
+    // Clean up Google's thin spaces if any
+    const cleanStr = lowerStr.replace(/[\u2009\u202f]/g, ' ');
+
+    if (cleanStr.includes("closed")) {
+        return { text: "Closed", open: -1, close: -1, isClosed: true };
     }
 
-    // Improved Regex: Handle any dash type (-, –, —) and variable whitespace
-    const timeRegex = /(\d{1,2}:\d{2}\s*[AP]M)\s*[\-–—]\s*(\d{1,2}:\d{2}\s*[AP]M)/i;
-    const match = dayStr.match(timeRegex);
+    if (cleanStr.includes("24 hours")) {
+        return { text: "Open 24 Hours", open: 0, close: 24 * 60, is24Hours: true };
+    }
+
+    // Regex for "9:00 AM – 5:00 PM" or "09:00 - 17:00"
+    const timeRegex = /(\d{1,2}:\d{2}(?:\s*[ap]m)?)\s*[\-–—]\s*(\d{1,2}:\d{2}(?:\s*[ap]m)?)/i;
+    const match = cleanStr.match(timeRegex);
 
     if (match) {
         return {
             text: dayStr,
             open: parseTime(match[1]),
-            close: parseTime(match[2])
+            close: parseTime(match[2]),
         };
     }
-    return { text: dayStr, open: 0, close: 24 * 60 }; // Fallback
+
+    // Return raw if regex fails but we have string
+    return { text: dayStr.split(': ').pop() || dayStr, open: 0, close: 0, isRaw: true };
 };
 
-const getTimeColor = (eventTime: string | null | undefined, open: number, close: number) => {
+const getTimeColor = (eventTime: string | null | undefined, open: number, close: number, isClosed?: boolean) => {
+    if (isClosed) return 'text-red-400';
     if (!eventTime) return 'text-white/90';
-    const time = parseTime(eventTime);
-    if (!time) return 'text-white/90'; // Default
 
-    // Check if Closed
+    const time = parseTime(eventTime);
+    if (!time) return 'text-white/90';
+
+    if (open === 0 && close === 24 * 60) return 'text-emerald-400'; // 24h is good
+
     if (time < open || time >= close) return 'text-red-400';
 
-    // Check if almost opening (within 60 mins of opening)
-    // OR almost closing (within 60 mins of closing)
-    const warningBuffer = 60;
-    if (Math.abs(time - open) <= warningBuffer || Math.abs(close - time) <= warningBuffer) {
+    if (Math.abs(time - open) <= 60 || Math.abs(close - time) <= 60) {
         return 'text-yellow-400';
     }
 
@@ -134,6 +143,15 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     const [localDescription, setLocalDescription] = useState(event.description || '');
     useEffect(() => { setLocalDescription(event.description || ''); }, [event.description]);
 
+    const navigate = useNavigate();
+    const handleCardClick = () => {
+        if (onClick) {
+            onClick();
+        } else {
+            navigate(`/place/${event.id}`);
+        }
+    };
+
     const descriptionInputRef = useRef<HTMLInputElement>(null);
     const [showDoneButton, setShowDoneButton] = useState(false);
 
@@ -180,7 +198,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
 
     // Opening Hours Logic
     const todayHours = getTodayHours(event.openingHours, selectedDayName);
-    const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close) : 'text-white/90';
+    const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close, todayHours.isClosed) : 'text-white/90';
 
     // Calculate End Time for display
     let timeDisplay = event.time;
@@ -442,7 +460,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                             </div>
                         ) : (
                             // Standard Expanded Card
-                            <div className="rounded-[1.75rem] overflow-hidden shadow-2xl shadow-blue-900/20 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={onClick}>
+                            <div className="rounded-[1.75rem] overflow-hidden shadow-2xl shadow-blue-900/20 mb-2 group/card cursor-pointer transition-transform hover:scale-[1.005] bg-[#0B1221]" onClick={handleCardClick}>
                                 {/* Top Section: Dark Navy or Image */}
                                 <div className="p-6 pb-6 relative overflow-hidden h-full min-h-[160px] flex flex-col justify-between">
                                     {/* (Normal Card Content) */}
@@ -499,39 +517,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         </div>
 
                                         <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
-                                        <div className="relative w-full mb-4">
-                                            <input
-                                                ref={descriptionInputRef}
-                                                type="text"
-                                                value={localDescription}
-                                                onChange={(e) => setLocalDescription(e.target.value)}
-                                                onFocus={() => setShowDoneButton(true)}
-                                                onBlur={(e) => {
-                                                    onDescriptionChange?.(event.id, e.target.value);
-                                                    onDescriptionSave?.(event.id, e.target.value);
-                                                    // Delay hiding to allow smooth transition or click events
-                                                    setTimeout(() => setShowDoneButton(false), 200);
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                placeholder="Add notes..."
-                                                className="w-full bg-white text-zinc-800 rounded-lg pl-3 pr-16 py-2 font-light italic text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm"
-                                            />
-                                            <AnimatePresence>
-                                                {showDoneButton && (
-                                                    <div
-                                                        // Use div instead of button to avoid submitting if wrapped in form (though not here)
-                                                        // Acting as a visual triggers for blur
-                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#007AFF] text-white text-[10px] font-bold px-3 py-1.5 rounded-md shadow-md cursor-pointer hover:bg-blue-600 transition-colors z-10"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation(); // Prevent card click
-                                                            descriptionInputRef.current?.blur(); // Trigger blur -> save
-                                                        }}
-                                                    >
-                                                        Done
-                                                    </div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
+
 
                                         {(event.duration || event.rating || event.openingHours) && (
                                             <div className="flex flex-col gap-2">
@@ -572,10 +558,19 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                     )}
                                                 </div>
                                                 {/* Opening Hours Display */}
-                                                {event.openingHours && todayHours && (
-                                                    <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 opacity-80 pl-0.5">
-                                                        <span className={timeColor}>
-                                                            {todayHours.text}
+                                                {/* Opening Hours Display */}
+                                                {todayHours && (
+                                                    <div className="flex items-center gap-2 px-1 mt-0.5">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${timeColor.replace('text-', 'bg-')}`} />
+                                                        <span className={`text-[10px] font-bold ${timeColor} opacity-90`}>
+                                                            {todayHours.isClosed
+                                                                ? 'Closed'
+                                                                : todayHours.is24Hours
+                                                                    ? 'Open 24 Hours'
+                                                                    : todayHours.isRaw
+                                                                        ? todayHours.text
+                                                                        : `Open ${formatTime(todayHours.open)} - ${formatTime(todayHours.close)}`
+                                                            }
                                                         </span>
                                                     </div>
                                                 )}
@@ -591,13 +586,36 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                     <div className="absolute -top-3 -right-3 w-6 h-6 bg-zinc-50 rounded-full" />
 
                                     <div className="grid gap-2.5">
-                                        <Link to={`/place/${event.id}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="flex items-center justify-between bg-white text-[#007AFF] text-xs font-bold py-3 px-5 rounded-xl transition-all hover:bg-white/90 hover:scale-[1.01] shadow-sm w-full"
-                                        >
-                                            <span>View Details</span>
-                                            <ArrowRight size={14} className="opacity-70" />
-                                        </Link>
+                                        <div className="relative w-full">
+                                            <input
+                                                ref={descriptionInputRef}
+                                                type="text"
+                                                value={localDescription}
+                                                onChange={(e) => setLocalDescription(e.target.value)}
+                                                onFocus={() => setShowDoneButton(true)}
+                                                onBlur={(e) => {
+                                                    onDescriptionChange?.(event.id, e.target.value);
+                                                    onDescriptionSave?.(event.id, e.target.value);
+                                                    setTimeout(() => setShowDoneButton(false), 200);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                placeholder="Add notes..."
+                                                className="w-full bg-white text-zinc-800 rounded-xl pl-4 pr-16 py-3 font-light italic text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all shadow-sm"
+                                            />
+                                            <AnimatePresence>
+                                                {showDoneButton && (
+                                                    <div
+                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#007AFF] text-white text-[10px] font-bold px-3 py-1.5 rounded-md shadow-md cursor-pointer hover:bg-blue-600 transition-colors z-10"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            descriptionInputRef.current?.blur();
+                                                        }}
+                                                    >
+                                                        Done
+                                                    </div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
 
                                         <div className="grid grid-cols-2 gap-2.5">
                                             <button
