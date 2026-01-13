@@ -199,9 +199,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             // Determine which trip to load
             let targetTripId = currentTripId; // Keep current if valid
 
-            // If no current trip selected, or valid check failed, pick first available
+            // If no current trip selected, try to load from storage or pick first available
             if (!targetTripId) {
-                if (allTrips.length > 0) {
+                const storedTripId = await storage.getCurrentTripId();
+                if (storedTripId && allTrips.find(t => t.id === storedTripId)) {
+                    targetTripId = storedTripId;
+                } else if (allTrips.length > 0) {
                     targetTripId = allTrips[0].id;
                 } else {
                     // No trips at all! Create a default one.
@@ -268,9 +271,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             // Optimistic switch
             setTripNameState(tripSummary.name);
             setCurrentTripId(id);
+            await storage.setCurrentTripId(id); // Persist selection
             // Then load full details (events etc)
             await loadTripDetails(id, tripSummary);
         } else {
+            await storage.setCurrentTripId(id); // Persist selection
             await loadTripDetails(id);
         }
         setIsLoading(false);
