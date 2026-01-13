@@ -25,6 +25,7 @@ interface MapComponentProps {
     className?: string;
     onRouteInfo?: (totalDistance: number, totalDuration: number) => void;
     onMarkerClick?: (id: string) => void;
+    onMapClick?: () => void;
 }
 
 // Simple SVG Paths for Icons (approximate)
@@ -42,7 +43,8 @@ export function MapComponent({
     markers = [],
     className = "w-full h-full",
     onRouteInfo,
-    onMarkerClick
+    onMarkerClick,
+    onMapClick
 }: MapComponentProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
@@ -109,6 +111,12 @@ export function MapComponent({
                 backgroundColor: '#27272a',
                 gestureHandling: 'greedy',
             });
+
+            if (onMapClick) {
+                mapInstanceRef.current.addListener("click", () => {
+                    onMapClick();
+                });
+            }
         }
     }, [isLoaded]);
 

@@ -20,7 +20,7 @@ export default function MapPage() {
         setSelectedPlaceId(null);
     }, [selectedDayOffset]);
 
-    const selectedDate = tripDates.find(d => d.offset === selectedDayOffset) || tripDates[0];
+    const selectedDate = tripDates.find(d => d.offset === selectedDayOffset);
 
     const selectedEvent = useMemo(() => {
         return events.find(e => e.id === selectedPlaceId);
@@ -182,6 +182,7 @@ export default function MapPage() {
                         setLiveDuration(dur);
                     }}
                     onMarkerClick={setSelectedPlaceId}
+                    onMapClick={() => setSelectedPlaceId(null)}
                 />
 
                 {/* Controls Overlay */}
@@ -212,17 +213,10 @@ export default function MapPage() {
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
                                 transition={{ duration: 0.2 }}
-                                className="bg-white/95 backdrop-blur-xl rounded-[1.75rem] border border-zinc-100 shadow-[0_8px_30px_rgba(0,0,0,0.12)] pointer-events-auto p-5 relative z-30"
+                                className="bg-white/95 backdrop-blur-xl rounded-2xl border border-zinc-100 shadow-[0_8px_30px_rgba(0,0,0,0.12)] pointer-events-auto p-4 relative z-30"
                             >
-                                <button
-                                    onClick={() => setSelectedPlaceId(null)}
-                                    className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-400 hover:bg-zinc-200"
-                                >
-                                    <X size={14} />
-                                </button>
-
-                                <div className="flex flex-col gap-2">
-                                    <div className="inline-flex self-start px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white bg-zinc-400 mb-1"
+                                <div className="flex justify-between items-start gap-4 mb-1">
+                                    <div className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-white bg-zinc-400"
                                         style={{
                                             backgroundColor:
                                                 selectedEvent.type === 'Eat' ? '#F97316' :
@@ -233,12 +227,19 @@ export default function MapPage() {
                                     >
                                         {selectedEvent.type}
                                     </div>
-                                    <h3 className="text-xl font-bold text-zinc-900 leading-tight pr-8">{selectedEvent.title}</h3>
+                                    <button
+                                        onClick={() => setSelectedPlaceId(null)}
+                                        className="text-zinc-400 hover:text-zinc-600 -mt-1 -mr-1 p-1"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
 
-                                    <div className={`mt-2 p-3 rounded-xl flex items-center gap-3 ${scheduledInfo.isScheduled ? 'bg-blue-50 text-blue-700' : 'bg-zinc-50 text-zinc-500'}`}>
-                                        <div className={`w-2 h-2 rounded-full ${scheduledInfo.isScheduled ? 'bg-blue-500' : 'bg-zinc-300'}`} />
-                                        <span className="font-bold text-xs">{scheduledInfo.text}</span>
-                                    </div>
+                                <h3 className="text-base font-bold text-zinc-900 leading-tight mb-1.5">{selectedEvent.title}</h3>
+
+                                <div className={`flex items-center gap-2 text-xs ${scheduledInfo.isScheduled ? 'text-blue-600' : 'text-zinc-500'}`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${scheduledInfo.isScheduled ? 'bg-blue-500' : 'bg-zinc-300'}`} />
+                                    <span className="font-medium">{scheduledInfo.text}</span>
                                 </div>
                             </motion.div>
                         )}
