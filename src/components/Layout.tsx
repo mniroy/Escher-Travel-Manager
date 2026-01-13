@@ -39,7 +39,7 @@ export function Layout({ children, showNav = true, fullScreen = false }: LayoutP
 
             {/* Header */}
             {/* Header - Nav Controls (under content, above bg) */}
-            <div className="fixed top-0 left-0 z-[1] px-6 py-4 flex items-center gap-4">
+            <div className="fixed top-0 left-0 z-[1] px-6 pt-14 pb-4 flex items-center gap-4">
                 <button
                     onClick={() => setIsSidebarOpen(true)}
                     className="p-2 -ml-2 text-white rounded-full hover:bg-white/10 transition-colors z-50 relative"
@@ -51,7 +51,7 @@ export function Layout({ children, showNav = true, fullScreen = false }: LayoutP
             </div>
 
             {/* Header - Logo (under content, above bg) */}
-            <div className="fixed top-0 right-0 z-[1] px-6 py-4 flex flex-col items-end pointer-events-none">
+            <div className="fixed top-0 right-0 z-[1] px-6 pt-14 pb-4 flex flex-col items-end pointer-events-none">
                 <h1 className="font-['Playfair_Display'] font-black text-2xl tracking-tight text-white leading-none drop-shadow-md">
                     ESCHER
                 </h1>
