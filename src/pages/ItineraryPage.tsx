@@ -4,9 +4,9 @@ import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
-import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass } from 'lucide-react';
+import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder, useDragControls } from 'framer-motion';
 import { optimizeRoute } from '../lib/googleMaps';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
 
@@ -892,55 +892,24 @@ export default function ItineraryPage() {
                     >
                         <AnimatePresence mode='popLayout'>
                             {filteredEvents.map((event, index) => (
-                                <Reorder.Item
+                                <DraggableTimelineItem
                                     key={event.id}
-                                    value={event}
-                                    dragListener={isEditing}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="relative"
-                                    style={{ touchAction: isEditing ? 'none' : 'auto' }}
-                                >
-
-                                    {/* Insert Zone BEFORE item */}
-                                    {isEditing && (
-                                        <div
-                                            onClick={() => openSelectorAt(index)}
-                                            className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
-                                        >
-                                            <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
-                                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
-                                                    <Plus size={10} strokeWidth={3} /> INSERT HERE
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="relative group" onClick={() => isEditing && openEditModal(event)}>
-                                        <TimelineItem
-                                            event={event}
-                                            isLast={index === filteredEvents.length - 1}
-                                            isFirst={index === 0}
-                                            isCompact={isEditing}
-                                            icon={getIcon(event.type)}
-                                            nextCongestion={filteredEvents[index + 1]?.congestion}
-                                            onCheckIn={handleCheckIn}
-                                            onSkip={handleSkip}
-                                            onTimeChange={handleTimeChange}
-                                            onBufferChange={handleBufferChange}
-                                            selectedDayName={tripDates.find(d => d.offset === (event.dayOffset ?? 0))?.dayName}
-                                        />
-                                        {isEditing && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                                className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
-                                            >
-                                                <X size={14} strokeWidth={3} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </Reorder.Item>
+                                    event={event}
+                                    index={index}
+                                    isEditing={isEditing}
+                                    isLast={index === filteredEvents.length - 1}
+                                    isFirst={index === 0}
+                                    icon={getIcon(event.type)}
+                                    nextCongestion={filteredEvents[index + 1]?.congestion}
+                                    selectedDayName={tripDates.find(d => d.offset === (event.dayOffset ?? 0))?.dayName}
+                                    openSelectorAt={openSelectorAt}
+                                    openEditModal={openEditModal}
+                                    handleDeleteEvent={handleDeleteEvent}
+                                    onCheckIn={handleCheckIn}
+                                    onSkip={handleSkip}
+                                    onTimeChange={handleTimeChange}
+                                    onBufferChange={handleBufferChange}
+                                />
                             ))}
                         </AnimatePresence>
                     </Reorder.Group>
@@ -957,18 +926,108 @@ export default function ItineraryPage() {
                             Add First Activity
                         </button>
                     </div>
-                )}
+                )
+                }
 
                 {/* Final Insert Zone at the end */}
-                {isEditing && filteredEvents.length > 0 && (
+                {
+                    isEditing && filteredEvents.length > 0 && (
+                        <div
+                            onClick={() => openSelectorAt(filteredEvents.length)}
+                            className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                        >
+                            + Add to End
+                        </div>
+                    )
+                }
+            </div >
+        </Layout >
+    );
+}
+
+function DraggableTimelineItem({
+    event,
+    index,
+    isEditing,
+    isLast,
+    isFirst,
+    icon,
+    nextCongestion,
+    selectedDayName,
+    openSelectorAt,
+    openEditModal,
+    handleDeleteEvent,
+    onCheckIn,
+    onSkip,
+    onTimeChange,
+    onBufferChange
+}: any) {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={event}
+            dragListener={false}
+            dragControls={controls}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative"
+        >
+            {/* Insert Zone BEFORE item */}
+            {isEditing && (
+                <div
+                    onClick={() => openSelectorAt(index)}
+                    className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                >
+                    <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                            <Plus size={10} strokeWidth={3} /> INSERT HERE
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="relative group flex items-stretch">
+                {/* Drag Handle - Left Side Layout for Alignment */}
+                {isEditing && (
                     <div
-                        onClick={() => openSelectorAt(filteredEvents.length)}
-                        className="h-12 border-2 border-dashed border-zinc-200 rounded-xl flex items-center justify-center text-sm font-bold text-zinc-400 hover:text-zinc-900 hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer transition-all mt-4"
+                        className="flex flex-col justify-center items-center pr-2 cursor-grab active:cursor-grabbing touch-none select-none"
+                        onPointerDown={(e) => controls.start(e)}
                     >
-                        + Add to End
+                        <div className="p-3 bg-zinc-100 rounded-xl hover:bg-zinc-200 text-zinc-400 transition-colors">
+                            <GripVertical size={20} />
+                        </div>
                     </div>
                 )}
+
+                <div
+                    className="flex-1 min-w-0"
+                    onClick={() => isEditing && openEditModal(event)}
+                >
+                    <TimelineItem
+                        event={event}
+                        isLast={isLast}
+                        isFirst={isFirst}
+                        isCompact={isEditing}
+                        icon={icon}
+                        nextCongestion={nextCongestion}
+                        onCheckIn={onCheckIn}
+                        onSkip={onSkip}
+                        onTimeChange={onTimeChange}
+                        onBufferChange={onBufferChange}
+                        selectedDayName={selectedDayName}
+                    />
+                    {isEditing && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                            className="absolute -right-2 -top-2 w-7 h-7 bg-white text-zinc-900 border border-zinc-200 rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-90 transition-transform z-10"
+                        >
+                            <X size={14} strokeWidth={3} />
+                        </button>
+                    )}
+                </div>
             </div>
-        </Layout>
+        </Reorder.Item>
     );
 }
