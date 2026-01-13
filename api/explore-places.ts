@@ -63,8 +63,8 @@ export default async function handler(request: Request) {
             },
             body: JSON.stringify({
                 textQuery: query,
-                // Requesting 10 results
-                pageSize: 10
+                // Requesting 20 results (max per page)
+                pageSize: 20
             })
         });
 
@@ -117,7 +117,7 @@ export default async function handler(request: Request) {
             return scoreB - scoreA;
         });
 
-        return new Response(JSON.stringify({ places: places.slice(0, 10) }), {
+        return new Response(JSON.stringify({ places: places }), {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',

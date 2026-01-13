@@ -1,7 +1,7 @@
 import { Layout } from '../components/Layout';
 import { MapPin, Search, Star, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { uuidv4 } from '../lib/uuid';
 import { Link } from 'react-router-dom';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
@@ -102,6 +102,40 @@ export default function PlacesPage() {
             );
         });
 
+    const [displayLimit, setDisplayLimit] = useState(20);
+    const loaderRef = useRef(null);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setDisplayLimit(20);
+    }, [searchQuery, selectedCategory]);
+
+    // Infinite scroll observer
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            const target = entries[0];
+            if (target.isIntersecting && displayLimit < filteredPlaces.length) {
+                setDisplayLimit(prev => Math.min(prev + 20, filteredPlaces.length));
+            }
+        }, {
+            root: null,
+            rootMargin: '100px',
+            threshold: 1.0,
+        });
+
+        if (loaderRef.current) {
+            observer.observe(loaderRef.current);
+        }
+
+        return () => {
+            if (loaderRef.current) {
+                observer.unobserve(loaderRef.current);
+            }
+        };
+    }, [filteredPlaces.length, displayLimit]);
+
+    const visiblePlaces = filteredPlaces.slice(0, displayLimit);
+
     return (
         <Layout>
             <div className="min-h-screen bg-zinc-50 pb-24">
@@ -183,7 +217,7 @@ export default function PlacesPage() {
                         <div className="px-6 pb-24">
                             {filteredPlaces.length > 0 ? (
                                 <div className="grid gap-5 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    {filteredPlaces.map(place => (
+                                    {visiblePlaces.map(place => (
                                         <Link
                                             to={`/place/${place.id}`}
                                             key={place.id}
@@ -249,6 +283,15 @@ export default function PlacesPage() {
                                             </div>
                                         </Link>
                                     ))}
+                                    {displayLimit < filteredPlaces.length && (
+                                        <div ref={loaderRef} className="h-10 w-full flex items-center justify-center opacity-50">
+                                            <div className="flex gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:-0.3s]"></div>
+                                                <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce [animation-delay:-0.15s]"></div>
+                                                <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce"></div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-60">
