@@ -19,11 +19,21 @@ interface MapComponentProps {
         title?: string;
         label?: string;
         color?: string;
-        congestion?: string;
+        type?: 'Transport' | 'Stay' | 'Eat' | 'Play';
+        isRoutePoint?: boolean;
     }>;
     className?: string;
     onRouteInfo?: (totalDistance: number, totalDuration: number) => void;
+    onMarkerClick?: (id: string) => void;
 }
+
+// Simple SVG Paths for Icons (approximate)
+const ICONS = {
+    Transport: "M22 16.92v3L12 15v-9H9v9L-1 16.92v3L9 18.5v9l1.5 1.5 1.5-1.5v-9l10 1.42z", // Plane-ish
+    Stay: "M19 7h-8v6h8V7zm2-4H3C2.45 3 2 3.45 2 4v16h2v-2h16v2h2V4c0-.55-.45-1-1-1zm-1 9H4V5h16v7z", // Bed
+    Eat: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z", // Fork/Knife
+    Play: "M13 13v8h8v-8h-8zM3 21h8v-8H3v8zM3 3v8h8V3H3zm13.66-1.31L11 7.34 16.66 13l5.66-5.66-5.66-5.65z" // Dashboard/Ticket shape
+};
 
 export function MapComponent({
     apiKey,
@@ -31,7 +41,8 @@ export function MapComponent({
     zoom = 10,
     markers = [],
     className = "w-full h-full",
-    onRouteInfo
+    onRouteInfo,
+    onMarkerClick
 }: MapComponentProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
@@ -150,40 +161,38 @@ export function MapComponent({
             let finalLng = m.lng;
 
             if (group.length > 1) {
-                // Dynamic Offset Calculation based on Zoom
-                // Goal: Constant pixel separate (approx)
-                // At Zoom 15, 0.00015 deg is good (~16m)
-                // As zoom decreases (farther), degrees per pixel doubles every step.
-                // So we need to INCREASE the degree offset as zoom DECREASES.
-                // Formula: BaseOffset * 2^(RefZoom - CurrentZoom)
-
+                // Dynamic Offset Calculation
                 const refZoom = 15;
                 const baseOffset = 0.00015;
                 const scale = Math.pow(2, refZoom - currentZoom);
-
-                // Limit scale to avoid massive jumps at low zoom (e.g. world view)
-                // Max scale for zoom 5 would be 2^10 = 1024 -> 0.15 degrees. That's fine.
                 const offsetStep = baseOffset * scale;
 
                 const shift = (indexInGroup - (group.length - 1) / 2) * offsetStep;
                 finalLng += shift;
-
-                // Optional: slight lat shift to prevent horizontal line overlap
-                // Scale lat offset too
                 finalLat += (indexInGroup % 2 === 0 ? 0 : (0.00005 * scale));
             }
 
-            const marker = new window.google.maps.Marker({
-                position: { lat: finalLat, lng: finalLng },
-                map: mapInstanceRef.current,
-                title: m.title,
-                label: {
-                    text: m.label || '',
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '12px'
-                },
-                icon: {
+            // Determine Icon
+            let icon: any;
+            if (m.type && ICONS[m.type]) {
+                const scale = 0.65;
+                const offset = 12 * (1 - scale); // Center the icon
+
+                const svg = `
+                <svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="11" fill="${m.color || '#6B7280'}" stroke="white" stroke-width="2"/>
+                    <path d="${ICONS[m.type]}" fill="white" transform="translate(${offset}, ${offset}) scale(${scale})"/>
+                </svg>`.trim();
+
+                // Custom Icon for POIs (Icon inside Circle)
+                icon = {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+                    scaledSize: new window.google.maps.Size(32, 32),
+                    anchor: new window.google.maps.Point(16, 16)
+                };
+            } else {
+                // Default Circle for Route Points
+                icon = {
                     path: window.google.maps.SymbolPath.CIRCLE,
                     scale: 14,
                     fillColor: m.color || '#007AFF',
@@ -191,15 +200,34 @@ export function MapComponent({
                     strokeColor: 'white',
                     strokeWeight: 2,
                     labelOrigin: new window.google.maps.Point(0, 0)
-                },
-                zIndex: 100 + indexInGroup // Ensure later markers in group are on top (or reverse if preferred)
+                };
+            }
+
+            const marker = new window.google.maps.Marker({
+                position: { lat: finalLat, lng: finalLng },
+                map: mapInstanceRef.current,
+                title: m.title,
+                label: m.label ? {
+                    text: m.label || '',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '12px'
+                } : null,
+                icon: icon,
+                zIndex: m.isRoutePoint ? (100 + indexInGroup) : 10 // Route points on top
             });
+
+            if (onMarkerClick) {
+                marker.addListener("click", () => {
+                    onMarkerClick(m.id);
+                });
+            }
 
             markersRef.current.push(marker);
         });
-    }, [markers, isLoaded, currentZoom]);
+    }, [markers, isLoaded, currentZoom, onMarkerClick]);
 
-    // 5. Update Path (REAL DIRECTIONS)
+    // 5. Update Path (REAL DIRECTIONS) - ONLY FOR ROUTE POINTS
     useEffect(() => {
         if (!mapInstanceRef.current || !window.google?.maps) return;
 
@@ -212,8 +240,11 @@ export function MapComponent({
             directionsRendererRef.current = null;
         }
 
+        // Filter for route points
+        const routeMarkers = markers.filter(m => m.isRoutePoint);
+
         // We need at least 2 points for a route
-        if (markers.length < 2) return;
+        if (routeMarkers.length < 2) return;
 
         const directionsService = new window.google.maps.DirectionsService();
 
@@ -229,10 +260,10 @@ export function MapComponent({
         });
 
         // Build Request
-        const origin = { lat: markers[0].lat, lng: markers[0].lng };
-        const destination = { lat: markers[markers.length - 1].lat, lng: markers[markers.length - 1].lng };
+        const origin = { lat: routeMarkers[0].lat, lng: routeMarkers[0].lng };
+        const destination = { lat: routeMarkers[routeMarkers.length - 1].lat, lng: routeMarkers[routeMarkers.length - 1].lng };
 
-        const waypoints = markers.slice(1, -1).map(m => ({
+        const waypoints = routeMarkers.slice(1, -1).map(m => ({
             location: { lat: m.lat, lng: m.lng },
             stopover: true
         }));
@@ -263,8 +294,6 @@ export function MapComponent({
         });
 
     }, [markers, isLoaded, onRouteInfo]); // Re-run when markers change OR map loads
-
-
 
     if (scriptLoadError) {
         return (

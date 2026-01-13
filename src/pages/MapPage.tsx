@@ -1,5 +1,5 @@
 import { Layout } from '../components/Layout';
-import { MapPin, ChevronUp, ChevronDown } from 'lucide-react';
+import { MapPin, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState, useMemo, useEffect } from 'react';
 import { MapComponent } from '../components/MapComponent';
@@ -7,22 +7,61 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MapPage() {
     const { tripDates, events } = useTrip();
-    const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+    const [selectedDayOffset, setSelectedDayOffset] = useState(-1);
+    const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
     const [isRouteCardExpanded, setIsRouteCardExpanded] = useState(true);
     const [liveDistance, setLiveDistance] = useState<number | null>(null);
     const [liveDuration, setLiveDuration] = useState<number | null>(null);
 
-    // Reset live data when changing days
+    // Reset live data and selection when changing days
     useEffect(() => {
         setLiveDistance(null);
         setLiveDuration(null);
+        setSelectedPlaceId(null);
     }, [selectedDayOffset]);
 
     const selectedDate = tripDates.find(d => d.offset === selectedDayOffset) || tripDates[0];
 
+    const selectedEvent = useMemo(() => {
+        return events.find(e => e.id === selectedPlaceId);
+    }, [events, selectedPlaceId]);
+
+    const scheduledInfo = useMemo(() => {
+        if (!selectedEvent) return null;
+        // 1. If the clicked event itself is scheduled
+        if ((selectedEvent.dayOffset ?? -1) >= 0) {
+            const date = tripDates.find(d => d.offset === selectedEvent.dayOffset);
+            return {
+                isScheduled: true,
+                text: `Scheduled on Day ${date ? date.offset + 1 : '?'} (${date?.dayName})`
+            };
+        }
+        // 2. If it's a saved place, check if it's scheduled elsewhere
+        const scheduledVar = events.find(e =>
+            (e.dayOffset ?? -1) >= 0 &&
+            ((e.placeId && e.placeId === selectedEvent.placeId) ||
+                (e.title === selectedEvent.title))
+        );
+
+        if (scheduledVar) {
+            const date = tripDates.find(d => d.offset === scheduledVar.dayOffset);
+            return {
+                isScheduled: true,
+                text: `Scheduled on Day ${date ? date.offset + 1 : '?'} (${date?.dayName})`
+            };
+        }
+
+        return {
+            isScheduled: false,
+            text: "Saved in Library"
+        };
+    }, [selectedEvent, events, tripDates]);
+
     // Filter events for the selected day and sort by time
     // We treat 'TBD' times as last
     const dayEvents = useMemo(() => {
+        if (selectedDayOffset === -1) return [];
+
         return events
             .filter(e => e.dayOffset === selectedDayOffset)
             .sort((a, b) => {
@@ -34,35 +73,71 @@ export default function MapPage() {
 
     // Prepare Map Data
     const { markers, mapCenter } = useMemo(() => {
-        const validEvents = dayEvents.filter(e => {
-            if (e.lat && e.lng) return true;
-            return false;
-        });
-
-        const points = validEvents.map(e => {
-            let lat = e.lat;
-            let lng = e.lng;
-
-            return {
+        // 1. Current Day Route Markers (Numbered)
+        const dayMarkers = dayEvents
+            .filter(e => e.lat && e.lng)
+            .map(e => ({
                 id: e.id,
-                lat: lat!,
-                lng: lng!,
+                lat: e.lat!,
+                lng: e.lng!,
                 title: e.title,
                 label: (getDayEventIndex(dayEvents, e.id) + 1).toString(),
-                color: e.type === 'Eat' ? '#F59E0B' : e.type === 'Stay' ? '#8B5CF6' : '#007AFF',
-                congestion: e.congestion // Pass traffic status
-            };
-        }).filter(p => p.lat && p.lng);
+                color: '#007AFF', // Route is always Blue default, or customize
+                isRoutePoint: true
+            }));
 
-        const center = points.length > 0
-            ? { lat: points[0].lat, lng: points[0].lng }
-            : { lat: -8.409518, lng: 115.188919 }; // Bali Default
+        // 2. POI Markers 
+        // If All view (-1): Show ALL saved places
+        // If Day view (>=0): Show NO extra POIs (only route)
+
+        let poiMarkers: any[] = [];
+
+        if (selectedDayOffset === -1) {
+            const getTypeColor = (type: string) => {
+                switch (type) {
+                    case 'Transport': return '#3B82F6';
+                    case 'Stay': return '#8B5CF6';
+                    case 'Eat': return '#F97316';
+                    case 'Play': return '#10B981';
+                    default: return '#9CA3AF';
+                }
+            };
+
+            const currentDayIds = new Set(dayEvents.map(e => e.id));
+
+            poiMarkers = events
+                .filter(e =>
+                    e.status === 'Saved' &&
+                    !currentDayIds.has(e.id) &&
+                    e.lat && e.lng
+                )
+                .map(e => ({
+                    id: e.id,
+                    lat: e.lat!,
+                    lng: e.lng!,
+                    title: e.title,
+                    label: '', // No number for POIs
+                    type: e.type as 'Transport' | 'Stay' | 'Eat' | 'Play',
+                    color: getTypeColor(e.type),
+                    isRoutePoint: false
+                }));
+        }
+
+        const allMarkers = [...dayMarkers, ...poiMarkers];
+
+        // Center on the first event of the day, or first POI, or Bali default
+        let center = { lat: -8.409518, lng: 115.188919 };
+        if (dayMarkers.length > 0) {
+            center = { lat: dayMarkers[0].lat, lng: dayMarkers[0].lng };
+        } else if (poiMarkers.length > 0) {
+            center = { lat: poiMarkers[0].lat, lng: poiMarkers[0].lng };
+        }
 
         return {
-            markers: points,
+            markers: allMarkers,
             mapCenter: center
         };
-    }, [dayEvents]);
+    }, [dayEvents, events, selectedDayOffset]);
 
     const totalDistance = dayEvents.reduce((acc, curr) => {
         if (curr.travelDistance) {
@@ -106,6 +181,7 @@ export default function MapPage() {
                         setLiveDistance(dist);
                         setLiveDuration(dur);
                     }}
+                    onMarkerClick={setSelectedPlaceId}
                 />
 
                 {/* Controls Overlay */}
@@ -115,19 +191,61 @@ export default function MapPage() {
                             <MapPin size={16} fill="currentColor" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Viewing Day {selectedDate?.offset + 1}</p>
-                            <p className="text-sm font-bold text-zinc-900 leading-none whitespace-nowrap">{selectedDate?.dayName}, {selectedDate?.dateNum}</p>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                {selectedDayOffset === -1 ? 'VIEWING' : `Viewing Day ${selectedDate?.offset! + 1}`}
+                            </p>
+                            <p className="text-sm font-bold text-zinc-900 leading-none whitespace-nowrap">
+                                {selectedDayOffset === -1 ? 'All Places' : `${selectedDate?.dayName}, ${selectedDate?.dateNum}`}
+                            </p>
                         </div>
                     </div>
-
-                    {/* Traffic button removed */}
                 </div>
 
                 {/* Floating Date & Route Container */}
                 <div className="absolute bottom-24 left-4 right-4 z-20 flex flex-col gap-4 pointer-events-none">
 
-                    {/* Route Card */}
-                    {dayEvents.length > 0 && (
+                    {/* DETAIL CARD (Overlay) */}
+                    <AnimatePresence>
+                        {selectedEvent && scheduledInfo && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                className="bg-white/95 backdrop-blur-xl rounded-[1.75rem] border border-zinc-100 shadow-[0_8px_30px_rgba(0,0,0,0.12)] pointer-events-auto p-5 relative z-30"
+                            >
+                                <button
+                                    onClick={() => setSelectedPlaceId(null)}
+                                    className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-400 hover:bg-zinc-200"
+                                >
+                                    <X size={14} />
+                                </button>
+
+                                <div className="flex flex-col gap-2">
+                                    <div className="inline-flex self-start px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white bg-zinc-400 mb-1"
+                                        style={{
+                                            backgroundColor:
+                                                selectedEvent.type === 'Eat' ? '#F97316' :
+                                                    selectedEvent.type === 'Stay' ? '#8B5CF6' :
+                                                        selectedEvent.type === 'Transport' ? '#3B82F6' :
+                                                            selectedEvent.type === 'Play' ? '#10B981' : '#9CA3AF'
+                                        }}
+                                    >
+                                        {selectedEvent.type}
+                                    </div>
+                                    <h3 className="text-xl font-bold text-zinc-900 leading-tight pr-8">{selectedEvent.title}</h3>
+
+                                    <div className={`mt-2 p-3 rounded-xl flex items-center gap-3 ${scheduledInfo.isScheduled ? 'bg-blue-50 text-blue-700' : 'bg-zinc-50 text-zinc-500'}`}>
+                                        <div className={`w-2 h-2 rounded-full ${scheduledInfo.isScheduled ? 'bg-blue-500' : 'bg-zinc-300'}`} />
+                                        <span className="font-bold text-xs">{scheduledInfo.text}</span>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Route Card (Only show if no detail selected) */}
+                    {!selectedPlaceId && dayEvents.length > 0 && (
                         <motion.div
                             initial={false}
                             animate={{ height: isRouteCardExpanded ? 'auto' : 'auto' }}
@@ -171,8 +289,6 @@ export default function MapPage() {
                                         <div
                                             className="overflow-y-auto custom-scrollbar max-h-[35vh] overscroll-contain touch-pan-y p-5 pt-2"
                                             onTouchStart={(e) => e.stopPropagation()}
-                                        // onTouchStart stopPropagation helps prevent the drag from bubbling to map if content scrolls to end?
-                                        // Actually overscroll-contain is usually enough for modern browsers.
                                         >
                                             <div className="relative -mx-2 px-2">
                                                 {dayEvents.length > 1 && (
@@ -202,6 +318,22 @@ export default function MapPage() {
 
                     {/* Date Selector Pill */}
                     <div className="pointer-events-auto bg-white/90 backdrop-blur-xl p-1.5 rounded-[1.25rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-zinc-100 flex gap-2 overflow-x-auto no-scrollbar mx-auto max-w-full overscroll-contain touch-pan-x">
+                        <button
+                            onClick={() => setSelectedDayOffset(-1)}
+                            className={`
+                                flex flex-col items-center justify-center min-w-[3.25rem] h-14 rounded-2xl transition-all duration-200
+                                ${selectedDayOffset === -1
+                                    ? 'bg-[#007AFF] text-white shadow-md shadow-blue-500/25 scale-100'
+                                    : 'bg-transparent text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600'
+                                }
+                            `}
+                        >
+                            <span className="text-[9px] font-bold uppercase tracking-wider opacity-90">VIEW</span>
+                            <span className={`text-lg font-bold leading-none mt-0.5 ${selectedDayOffset === -1 ? 'text-white' : 'text-zinc-600'}`}>ALL</span>
+                        </button>
+
+                        <div className="w-px bg-zinc-200 my-2" />
+
                         {tripDates.map((dateItem) => (
                             <button
                                 key={dateItem.offset}
