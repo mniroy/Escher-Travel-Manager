@@ -125,7 +125,7 @@ export default function PlacesPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none h-full translate-y-1" />
 
                     <div className="absolute bottom-16 left-6 z-20">
-                        <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Destination Library</h1>
+                        <h1 className="text-4xl font-['Playfair_Display'] font-black text-white mb-2 shadow-sm drop-shadow-md">Destination Library</h1>
                         <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Your personal collection of saved places.</p>
                     </div>
                 </div>

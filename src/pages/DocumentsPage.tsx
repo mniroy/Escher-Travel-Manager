@@ -200,7 +200,7 @@ export default function DocumentsPage() {
                     </motion.div>
 
                     <div className="absolute bottom-16 left-6 z-20">
-                        <h1 className="text-4xl font-extrabold text-white mb-2 shadow-sm drop-shadow-md">Travel Docs</h1>
+                        <h1 className="text-4xl font-['Playfair_Display'] font-black text-white mb-2 shadow-sm drop-shadow-md">Travel Docs</h1>
                         <p className="text-white/90 text-sm font-medium drop-shadow-sm max-w-xs">Everything you need, organized and offline-ready.</p>
                     </div>
                 </div>

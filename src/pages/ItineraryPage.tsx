@@ -4,8 +4,7 @@ import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
-import { TripSettingsModal } from '../components/TripSettingsModal';
-import { Plus, Settings, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass } from 'lucide-react';
+import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder } from 'framer-motion';
 import { optimizeRoute } from '../lib/googleMaps';
@@ -57,14 +56,13 @@ const formatTime = (minutes: number) => {
 
 export default function ItineraryPage() {
     const {
-        tripName, setTripName,
-        startDate, setStartDate,
-        tripDuration, setTripDuration,
+        tripName,
+        // startDate, // Unused
+        // tripDuration, // Unused
         events, setEvents, deleteEvent,
         tripDates
     } = useTrip();
 
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [category, setCategory] = useState<Category>('All');
     const [selectedDayOffsets, setSelectedDayOffsets] = useState<number[]>([0]); // 0-indexed day offsets
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -673,21 +671,7 @@ export default function ItineraryPage() {
 
     return (
         <Layout>
-            <TripSettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                onSave={(settings) => {
-                    setTripName(settings.tripName);
-                    setStartDate(new Date(settings.startDate));
-                    setTripDuration(settings.duration);
-                    setIsSettingsOpen(false);
-                }}
-                initialSettings={{
-                    tripName,
-                    startDate: startDate.toISOString().split('T')[0],
-                    duration: tripDuration
-                }}
-            />
+
 
             <AddActivityModal
                 isOpen={isModalOpen}
@@ -743,19 +727,12 @@ export default function ItineraryPage() {
 
                 <div className="relative z-10 flex justify-between items-end pb-8">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
+                        <h1 className="text-3xl font-['Playfair_Display'] font-black text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
                         <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
                             <span>{getFormattedDateRange()}</span>
                         </div>
                     </div>
-                    {/* User Avatar / Profile */}
-                    {/* Settings Button (Replaces Avatar) */}
-                    <button
-                        onClick={() => setIsSettingsOpen(true)}
-                        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-md hover:bg-white/20 active:scale-95 transition-all"
-                    >
-                        <Settings size={18} strokeWidth={2} />
-                    </button>
+                    {/* User Avatar / Profile - Removed Settings Button */}
                 </div>
             </header>
 

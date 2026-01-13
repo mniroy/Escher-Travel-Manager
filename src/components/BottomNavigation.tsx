@@ -1,4 +1,4 @@
-import { Map, Calendar, MapPin, FileText } from 'lucide-react';
+import { Map, Calendar, MapPin, FileText, LayoutDashboard } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 
 export function BottomNavigation() {
@@ -8,6 +8,7 @@ export function BottomNavigation() {
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-zinc-200 px-6 py-2 pb-6 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
             <div className="flex justify-between items-center max-w-sm mx-auto h-12">
+                <NavLink to="/summary" icon={<LayoutDashboard size={20} strokeWidth={2.5} />} active={isActive('/summary')} label="Summary" />
                 <NavLink to="/places" icon={<MapPin size={20} strokeWidth={2.5} />} active={isActive('/places')} label="Places" />
                 <NavLink to="/" icon={<Calendar size={20} strokeWidth={2.5} />} active={isActive('/')} label="Itinerary" />
                 <NavLink to="/map" icon={<Map size={20} strokeWidth={2.5} />} active={isActive('/map')} label="Route" />

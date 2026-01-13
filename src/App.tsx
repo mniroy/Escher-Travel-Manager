@@ -7,6 +7,7 @@ import PlacesPage from './pages/PlacesPage';
 import ExplorePlacesPage from './pages/ExplorePlacesPage';
 import DocumentsPage from './pages/DocumentsPage';
 import { ScrollToTop } from './components/ScrollToTop';
+import TripSummaryPage from './pages/TripSummaryPage';
 
 function AppContent() {
     const { isLoading } = useTrip();
@@ -25,6 +26,7 @@ function AppContent() {
     return (
         <div className="min-h-screen bg-background text-text selection:bg-primary selection:text-background font-sans">
             <Routes>
+                <Route path="/summary" element={<TripSummaryPage />} />
                 <Route path="/" element={<ItineraryPage />} />
                 <Route path="/place/:id" element={<PlaceDetailPage />} />
                 <Route path="/map" element={<MapPage />} />

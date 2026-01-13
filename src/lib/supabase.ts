@@ -52,6 +52,7 @@ export interface DbEvent {
     duration: string | null;
     google_maps_link: string | null;
     travel_time: string | null;
+    travel_distance: string | null;
     travel_mode: 'drive' | 'walk' | 'transit' | null;
     day_offset: number;
     sort_order: number;

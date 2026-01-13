@@ -55,9 +55,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Build waypoint with correct structure for Google Routes API
         // Structure: { location: { latLng: {...} } } OR { placeId: "..." }
         const buildWaypoint = (item: any) => {
-            if (item.placeId) {
+            // Validate Place ID: Must exist and not be a placeholder
+            const hasValidPlaceId = item.placeId &&
+                item.placeId !== 'unknown' &&
+                !String(item.placeId).startsWith('link-');
+
+            if (hasValidPlaceId) {
                 return { placeId: item.placeId };
             }
+
+            // Fallback to coordinates if Place ID is missing or invalid
             if (item.lat && item.lng) {
                 return {
                     location: {
@@ -71,16 +78,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return null;
         };
 
-        const intermediates = pool
-            .map(buildWaypoint)
-            .filter(Boolean);
+        // Map pool to waypoints, keep track of indices to detect failures
+        const validIntermediates = pool.map((item, index) => ({
+            waypoint: buildWaypoint(item),
+            index: index,
+            title: item.title
+        }));
+
+        const invalidItems = validIntermediates.filter(x => !x.waypoint);
+
+        if (invalidItems.length > 0) {
+            console.error('[DEBUG] Invalid items for optimization:', JSON.stringify(invalidItems.map(x => x.title)));
+            // We cannot optimize if we drop items, as indices will mismatch.
+            // Return 400 so the client knows why it failed.
+            return res.status(400).json({
+                error: 'Some items map to invalid locations.',
+                details: `Cannot optimize route. The following items strictly lack location data (Place ID or Coordinates): ${invalidItems.map(x => x.title).join(', ')}`
+            });
+        }
+
+        const intermediates = validIntermediates.map(x => x.waypoint);
 
         const originLoc = buildWaypoint(origin);
-        // Destination is same as origin
         const destLoc = buildWaypoint(destination);
 
-        if (!originLoc || !destLoc) {
-            return res.status(400).json({ error: 'Origin and destination must have placeId or coordinates' });
+        if (!originLoc) {
+            return res.status(400).json({ error: `Origin location invalid: ${origin.title}` });
+        }
+        if (!destLoc) {
+            return res.status(400).json({ error: `Destination location invalid: ${destination.title}` });
         }
 
         const response = await fetch(`https://routes.googleapis.com/directions/v2:computeRoutes`, {
@@ -110,7 +136,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const data = await response.json();
-        console.log('[DEBUG] Google Routes API response:', JSON.stringify(data, null, 2));
+
+        // Log basic success/failure signals instead of full object to avoid IO crashes
+        console.log(`[DEBUG] Google Routes API Status: ${response.status}. Routes found: ${data.routes ? data.routes.length : 0}`);
+
+        if (!data.routes || data.routes.length === 0) {
+            console.warn('[DEBUG] No accessible routes found. Likely impossible drive (island hopping without broken-out ferry steps).');
+            return res.status(422).json({
+                error: 'No route found.',
+                details: 'Google Maps could not find a driving route. You may be trying to connect locations separated by water (e.g. Bali to Nusa Penida/Lembongan) that require a ferry. Please split your trip or manage these legs manually.'
+            });
+        }
 
         // The API returns 'routes' array.
         // routes[0].optimizedIntermediateWaypointIndex: [0, 2, 1...] indices into the `intermediates` array provided.

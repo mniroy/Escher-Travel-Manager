@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import { TimelineEvent } from '../components/TimelineItem';
 import { db, DbTrip, DbEvent, subscribeToTrips, subscribeToEvents, checkSupabaseConnection } from '../lib/supabase';
 import { storage, initializeDefaultData, TimelineEvent as StoredEvent } from '../lib/storage';
+import { uuidv4 } from '../lib/uuid';
 
 // Default trip ID for shared access
 const DEFAULT_TRIP_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -32,6 +33,11 @@ interface TripContextType {
     // Current trip
     currentTripId: string | null;
 
+    // Trip Management
+    trips: DbTrip[];
+    createNewTrip: () => Promise<void>;
+    switchTrip: (id: string) => Promise<void>;
+
     // Refresh data
     refreshData: () => Promise<void>;
 }
@@ -55,6 +61,7 @@ function dbEventToTimelineEvent(e: DbEvent): TimelineEvent {
         duration: e.duration || undefined,
         googleMapsLink: e.google_maps_link || undefined,
         travelTime: e.travel_time || undefined,
+        travelDistance: e.travel_distance || undefined,
         travelMode: e.travel_mode || undefined,
         dayOffset: e.day_offset,
         congestion: (e.congestion as 'low' | 'moderate' | 'high') || undefined,
@@ -87,6 +94,7 @@ function timelineEventToDbEvent(e: TimelineEvent, tripId: string, sortOrder: num
         duration: e.duration || null,
         google_maps_link: e.googleMapsLink || null,
         travel_time: e.travelTime || null,
+        travel_distance: e.travelDistance || null,
         travel_mode: e.travelMode || null,
         day_offset: e.dayOffset ?? 0,
         sort_order: sortOrder,
@@ -106,6 +114,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(true);
     const [currentTripId, setCurrentTripId] = useState<string | null>(null);
+    const [trips, setTrips] = useState<DbTrip[]>([]); // List of all trips
+
     const [tripName, setTripNameState] = useState('');
     const [startDate, setStartDateState] = useState(new Date());
     const [tripDuration, setTripDurationState] = useState(9);
@@ -117,6 +127,44 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    // Helper to load a specific trip's details into state
+    const loadTripDetails = async (tripId: string, tripData?: DbTrip) => {
+        try {
+            let trip = tripData;
+            if (!trip) {
+                if (isOnline) {
+                    trip = await db.getTrip(tripId);
+                } else {
+                    trip = await storage.getTrip(tripId) as any;
+                }
+            }
+
+            if (trip) {
+                setTripNameState(trip.name);
+                setStartDateState(new Date(trip.start_date));
+                setTripDurationState(trip.duration);
+                setPlacesCoverImageState(trip.cover_image || '');
+                setCurrentTripId(trip.id);
+
+                // Load events for this trip
+                let dbEvents: DbEvent[] = [];
+                if (isOnline) {
+                    dbEvents = await db.getEvents(tripId);
+                } else {
+                    const storedEvents = await storage.getEvents(tripId);
+                    // Map stored events types to match DbEvent if needed, strictly speaking they are similar
+                    // We'll reuse the logic from loadData
+                    dbEvents = storedEvents as unknown as DbEvent[];
+                }
+
+                setEventsState(dbEvents.map(dbEventToTimelineEvent));
+                console.log(`[TripContext] Loaded trip: ${trip.name} (${trip.id})`);
+            }
+        } catch (e) {
+            console.error('[TripContext] Failed to load trip details', e);
+        }
+    };
+
     // Load data from Supabase or fallback to IndexedDB
     const loadData = useCallback(async () => {
         try {
@@ -124,71 +172,108 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             const supabaseConnected = await checkSupabaseConnection();
             setIsOnline(supabaseConnected);
 
+            let allTrips: DbTrip[] = [];
+
             if (supabaseConnected) {
-                // Load from Supabase (cloud)
-                console.log('[TripContext] Loading from Supabase...');
-
-                const tripId = DEFAULT_TRIP_ID;
-                setCurrentTripId(tripId);
-
-                const trip = await db.getTrip(tripId);
-                if (trip) {
-                    setTripNameState(trip.name);
-                    setStartDateState(new Date(trip.start_date));
-                    setTripDurationState(trip.duration);
-                    setPlacesCoverImageState(trip.cover_image || '');
-                } else {
-                    console.log('[TripContext] Default trip not found, creating...');
-                    const newTrip = await db.createTrip({
-                        id: tripId,
-                        name: 'My Trip to Bali',
-                        start_date: new Date().toISOString().split('T')[0],
-                        duration: 9,
-                        cover_image: null
-                    } as any);
-
-                    if (newTrip) {
-                        setTripNameState(newTrip.name);
-                        setStartDateState(new Date(newTrip.start_date));
-                        setTripDurationState(newTrip.duration);
-                    }
-                }
-
-                const dbEvents = await db.getEvents(tripId);
-                setEventsState(dbEvents.map(dbEventToTimelineEvent));
-
-                console.log('[TripContext] Loaded from Supabase:', trip?.name, 'Events:', dbEvents.length);
+                // Load ALL trips from Supabase
+                console.log('[TripContext] Loading ALL trips from Supabase...');
+                allTrips = await db.getTrips();
+                setTrips(allTrips);
             } else {
                 // Fallback to IndexedDB (offline)
                 console.log('[TripContext] Supabase unavailable, using IndexedDB...');
                 await initializeDefaultData();
-
-                const tripId = await storage.getCurrentTripId();
-                if (tripId) {
-                    setCurrentTripId(tripId);
-
-                    const trip = await storage.getTrip(tripId);
-                    if (trip) {
-                        setTripNameState(trip.name);
-                        setStartDateState(new Date(trip.startDate));
-                        setTripDurationState(trip.duration);
-                        setPlacesCoverImageState(trip.coverImage);
-                    }
-
-                    const storedEvents = await storage.getEvents(tripId);
-                    setEventsState(storedEvents.map(e => ({
-                        // ... (existing mapping) ...
-                        ...e,
-                        connection: (e.congestion as 'low' | 'moderate' | 'high') || undefined,
-                    } as any)));
+                // We need a helper to get all trips from IDB, but storage currently only has getTrip(id).
+                // For now, let's assume valid IDB usage mirrors what we need or we rely on the single current stored ID.
+                // TODO: Implement storage.getAllTrips() if full offline multi-trip is needed.
+                // For this MVP step, we'll try to load the current persisted ID.
+                const storedTripId = await storage.getCurrentTripId();
+                if (storedTripId) {
+                    // Fake the list with one trip if offline for now
+                    const t = await storage.getTrip(storedTripId);
+                    if (t) allTrips = [t as any];
                 }
             }
+
+            // Determine which trip to load
+            let targetTripId = currentTripId; // Keep current if valid
+
+            // If no current trip selected, or valid check failed, pick first available
+            if (!targetTripId) {
+                if (allTrips.length > 0) {
+                    targetTripId = allTrips[0].id;
+                } else {
+                    // No trips at all! Create a default one.
+                    const defaultId = DEFAULT_TRIP_ID;
+                    console.log('[TripContext] No trips found, creating default...');
+                    if (supabaseConnected) {
+                        const newTrip = await db.createTrip({
+                            id: defaultId,
+                            name: 'My Trip to Bali',
+                            start_date: new Date().toISOString().split('T')[0],
+                            duration: 9,
+                            cover_image: null
+                        } as any);
+                        allTrips = [newTrip];
+                        setTrips(allTrips);
+                        targetTripId = newTrip.id;
+                    }
+                }
+            }
+
+            // Finally load the details for the target trip
+            if (targetTripId) {
+                await loadTripDetails(targetTripId);
+            }
+
         } catch (error) {
             console.error('[TripContext] Load error:', error);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [currentTripId]); // Depend on currentTripId so we don't random switch on re-renders, but effectively we manage it manually
+
+    const createNewTrip = async () => {
+        const newId = uuidv4();
+        const today = new Date().toISOString().split('T')[0];
+
+        try {
+            const newTripData = {
+                id: newId,
+                name: 'New Trip',
+                start_date: today,
+                duration: 5,
+                cover_image: null
+            } as any;
+
+            if (isOnline) {
+                const created = await db.createTrip(newTripData);
+                setTrips(prev => [created, ...prev]);
+                await switchTrip(created.id);
+            } else {
+                // Offline creation
+                alert("Offline trip creation not fully supported in this demo yet.");
+            }
+        } catch (e) {
+            console.error("Failed to create trip", e);
+        }
+    };
+
+    const switchTrip = async (id: string) => {
+        setIsLoading(true);
+        // Find basic data in our list to optimize immediate feedback
+        const tripSummary = trips.find(t => t.id === id);
+        if (tripSummary) {
+            // Optimistic switch
+            setTripNameState(tripSummary.name);
+            setCurrentTripId(id);
+            // Then load full details (events etc)
+            await loadTripDetails(id, tripSummary);
+        } else {
+            await loadTripDetails(id);
+        }
+        setIsLoading(false);
+    };
 
     // Sync Ref with State whenever state changes (e.g. from real-time updates)
     useEffect(() => {
@@ -198,47 +283,105 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     // Initialize on mount
     useEffect(() => {
         loadData();
-    }, [loadData]);
+    }, []); // Run once on mount
 
     // Subscribe to real-time updates from Supabase
     useEffect(() => {
-        if (!isOnline || !currentTripId) return;
+        if (!isOnline) return;
 
-        console.log('[TripContext] Setting up real-time subscriptions...');
+        console.log('[TripContext] Setting up global real-time subscriptions...');
 
+        // Subscribe to trip list changes (add/delete trips)
         const tripChannel = subscribeToTrips((payload) => {
-            if (payload.eventType === 'UPDATE' && payload.new) {
-                const trip = payload.new as DbTrip;
-                if (trip.id === currentTripId) {
-                    setTripNameState(trip.name);
-                    setStartDateState(new Date(trip.start_date));
-                    setTripDurationState(trip.duration);
-                    setPlacesCoverImageState(trip.cover_image || '');
+            if (payload.eventType === 'INSERT' && payload.new) {
+                setTrips(prev => [payload.new as DbTrip, ...prev]);
+            } else if (payload.eventType === 'DELETE' && payload.old) {
+                setTrips(prev => prev.filter(t => t.id !== (payload.old as DbTrip).id));
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+                // Update list and current if matches
+                const updated = payload.new as DbTrip;
+                setTrips(prev => prev.map(t => t.id === updated.id ? updated : t));
+                if (currentTripId === updated.id) {
+                    setTripNameState(updated.name);
+                    setStartDateState(new Date(updated.start_date));
+                    setTripDurationState(updated.duration);
+                    setPlacesCoverImageState(updated.cover_image || '');
                 }
             }
         });
 
-        const eventChannel = subscribeToEvents(currentTripId, (payload) => {
-            console.log('[TripContext] Real-time event update:', payload.eventType);
-            db.getEvents(currentTripId).then(dbEvents => {
-                setEventsState(dbEvents.map(dbEventToTimelineEvent));
+        // Event subscription is specific to the current trip
+        let eventChannel: any;
+        if (currentTripId) {
+            eventChannel = subscribeToEvents(currentTripId, (payload) => {
+                console.log('[TripContext] Real-time event update:', payload.eventType);
+                db.getEvents(currentTripId).then(dbEvents => {
+                    setEventsState(dbEvents.map(dbEventToTimelineEvent));
+                });
             });
-        });
+        }
 
         return () => {
             tripChannel.unsubscribe();
-            eventChannel.unsubscribe();
+            if (eventChannel) eventChannel.unsubscribe();
         };
-    }, [isOnline, currentTripId]);
+    }, [isOnline, currentTripId]); // Re-sub when current trip changes
+
+    const fetchTripImage = async (tripId: string, query: string) => {
+        if (!query || query.length < 3 || query === 'New Trip') return;
+
+        try {
+            console.log(`[TripContext] Auto-fetching image for: ${query}`);
+            const response = await fetch('/api/parse-place', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: `https://www.google.com/maps/search/${encodeURIComponent(query)}` })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.photos && data.photos.length > 0) {
+                    const photoUrl = data.photos[0];
+                    console.log(`[TripContext] Found image for ${query}:`, photoUrl.substring(0, 50) + '...');
+
+                    if (tripId === currentTripId) {
+                        setPlacesCoverImageState(photoUrl);
+                    }
+
+                    // Always update DB/Storage for persistence
+                    if (isOnline) {
+                        await db.updateTrip(tripId, { cover_image: photoUrl });
+                    } else {
+                        await storage.updateTrip(tripId, { coverImage: photoUrl });
+                    }
+
+                    // Update local trips list to reflect the new image immediately in Sidebar
+                    setTrips(prev => prev.map(t => t.id === tripId ? { ...t, cover_image: photoUrl } : t));
+                }
+            }
+        } catch (error) {
+            console.error('[TripContext] Failed to fetch trip image:', error);
+        }
+    };
 
     const setTripName = async (name: string) => {
         setTripNameState(name);
         if (currentTripId) {
+            // Also update local list
+            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, name } : t));
+
             if (isOnline) await db.updateTrip(currentTripId, { name });
             else await storage.updateTrip(currentTripId, { name });
+
+            // Attempt to fetch a cover image if one doesn't exist, or just update it based on new name?
+            // Let's only update if the current image is empty or we want to force refresh.
+            // For now, let's try to fetch if we have a valid name.
+            // Debouncing would be ideal here if this is typed, but assuming on-blur for now.
+            fetchTripImage(currentTripId, name);
         }
     };
 
+    // ... keep setStartDate, setTripDuration, setPlacesCoverImage ...
     const setStartDate = async (date: Date) => {
         setStartDateState(date);
         if (currentTripId) {
@@ -264,6 +407,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // ... keep setEvents, deleteEvent ...
     const setEvents = async (eventsOrUpdater: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => {
         // Use Ref to get the absolutely latest state, bypassing render cycles for rapid updates
         const currentEvents = eventsRef.current;
@@ -288,7 +432,6 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                     const dbEvents = newEvents.map((e, i) =>
                         timelineEventToDbEvent(e, currentTripId, i)
                     ) as DbEvent[];
-                    // console.log('DEBUG: Upserting events count:', dbEvents.length);
                     await db.upsertEvents(dbEvents);
                 } else {
                     // Fallback to IndexedDB
@@ -303,8 +446,6 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 }
             } catch (error: any) {
                 console.error('[TripContext] Failed to persist events. Details:', JSON.stringify(error, null, 2));
-                // Optionally revert state here if critical, but for now just log
-                // Consider adding a toast notification here
                 alert(`Failed to save changes. Server says: ${error.message || 'Unknown error'}`);
             }
         }
@@ -359,6 +500,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             events, setEvents, deleteEvent,
             tripDates,
             currentTripId,
+            trips, // New
+            createNewTrip, // New
+            switchTrip, // New
             refreshData: loadData,
         }}>
             {children}
