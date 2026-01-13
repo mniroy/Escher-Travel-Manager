@@ -1,21 +1,19 @@
 import { ArrowRight, Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { TimePicker } from './TimePicker';
+import { DurationPicker } from './DurationPicker';
+import { parseTime, formatTime, parseDuration } from '../lib/utils';
 
-// Helper: Parse hours from "9:00 AM – 5:00 PM" string
-const parseTimeStr = (t: string) => {
-    try {
-        const parts = t.trim().split(/\s+/);
-        if (parts.length < 2) return 0;
-        const [time, period] = parts;
-        let [h, m] = time.split(':').map(Number);
-        if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
-        if (period.toUpperCase() === 'AM' && h === 12) h = 0;
-        return h * 60 + m;
-    } catch { return 0; }
-};
+// Helper: Parse hours from "9:00 AM – 5:00 PM" string - rename to avoid conflict if needed, 
+// but parseTime in utils is strictly for HH:MM AM/PM format.
+// The local parseTimeStr logic is similar but uses local error handling.
+// Let's use the local one for "opening hours" parsing as it handles specific regex match results?
+// Actually, parseTime in utils is robust. Let's see.
+// Utils parseTime takes "9:00 AM".
+// The regex in getTodayHours extracts "9:00 AM".
+// So we can use utils.parseTime.
 
 const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) => {
     if (!hours || !Array.isArray(hours) || hours.length === 0) return null;
@@ -51,8 +49,8 @@ const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) =>
     if (match) {
         return {
             text: dayStr,
-            open: parseTimeStr(match[1]),
-            close: parseTimeStr(match[2])
+            open: parseTime(match[1]),
+            close: parseTime(match[2])
         };
     }
     return { text: dayStr, open: 0, close: 24 * 60 }; // Fallback
@@ -60,7 +58,7 @@ const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) =>
 
 const getTimeColor = (eventTime: string | null | undefined, open: number, close: number) => {
     if (!eventTime) return 'text-white/90';
-    const time = parseTimeStr(eventTime);
+    const time = parseTime(eventTime);
     if (!time) return 'text-white/90'; // Default
 
     // Check if Closed
@@ -75,7 +73,7 @@ const getTimeColor = (eventTime: string | null | undefined, open: number, close:
 
     return 'text-white/90';
 };
-
+// ...
 export interface TimelineEvent {
     id: string;
     type: 'Transport' | 'Stay' | 'Eat' | 'Play';
@@ -114,7 +112,7 @@ export interface TimelineEvent {
     isEnd?: boolean;
 }
 
-interface TimelineItemProps {
+export interface TimelineItemProps {
     event: TimelineEvent;
     isLast?: boolean;
     isFirst?: boolean;
@@ -126,11 +124,21 @@ interface TimelineItemProps {
     nextCongestion?: 'low' | 'moderate' | 'high';
     onTimeChange?: (id: string, newTime: string) => void;
     onBufferChange?: (id: string, newBuffer: number) => void;
+    onDurationChange?: (id: string, newDuration: string) => void;
+    onDescriptionChange?: (id: string, newDescription: string) => void;
+    onDescriptionSave?: (id: string, finalDescription: string) => void;
     selectedDayName?: string;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, selectedDayName }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, selectedDayName }: TimelineItemProps) {
+    const [localDescription, setLocalDescription] = useState(event.description || '');
+    useEffect(() => { setLocalDescription(event.description || ''); }, [event.description]);
+
+    const descriptionInputRef = useRef<HTMLInputElement>(null);
+    const [showDoneButton, setShowDoneButton] = useState(false);
+
     const [showTimePicker, setShowTimePicker] = useState(false);
+    const [showDurationPicker, setShowDurationPicker] = useState(false);
     const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
     const isCheckedIn = event.status === 'Checked In';
@@ -174,74 +182,89 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     const todayHours = getTodayHours(event.openingHours, selectedDayName);
     const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close) : 'text-white/90';
 
+    // Calculate End Time for display
+    let timeDisplay = event.time;
+    if (event.duration && event.time && !isCompact && !isSkipped) {
+        const startMins = parseTime(event.time);
+        const durationMins = parseDuration(event.duration);
+        const endMins = startMins + durationMins;
+        const endTimeStr = formatTime(endMins);
+        // Format: "9:00 AM - 10:30 AM"
+        // If period is same, maybe "9:00 - 10:30 AM"? 
+        // Let's stick to full format for clarity as requested "start time on that particular place, to the end time"
+        timeDisplay = `${event.time} – ${endTimeStr}`;
+    }
+
     return (
         <div className="flex flex-col items-center relative group pb-4 w-full">
-
-            {/* 1. THE CONTINUOUS SPINE (Z-INDEX 0) */}
             <div className={`absolute top-0 w-[5px] left-1/2 -translate-x-1/2 ${showStartBadge ? 'bg-blue-200' : connectorColor} transition-colors duration-500 z-0`}
                 style={{ height: showTravelTime ? '64px' : '0px' }} />
 
-            {!isLast && (
-                <div className={`absolute bottom-0 w-[5px] left-1/2 -translate-x-1/2 ${outgoingConnectorColor} transition-colors duration-500 z-0`}
-                    style={{ top: (showTravelTime || showStartBadge) ? '64px' : '0px' }} />
-            )}
+            {
+                !isLast && (
+                    <div className={`absolute bottom-0 w-[5px] left-1/2 -translate-x-1/2 ${outgoingConnectorColor} transition-colors duration-500 z-0`}
+                        style={{ top: (showTravelTime || showStartBadge) ? '64px' : '0px' }} />
+                )
+            }
 
             {/* 2. TRAVEL INFO SEGMENT (Now much more compact) */}
-            {(showTravelTime || showStartBadge) && (
-                <div className="h-16 w-full flex items-center justify-center relative z-10">
-                    <div className={`absolute inset-0 flex items-center justify-center ${showStartBadge ? 'items-start pt-2' : ''} ${isSkipped ? 'opacity-30' : ''}`}>
-                        {showStartBadge ? (
-                            <div className="flex items-center justify-center relative z-30 group/start">
-                                <div className="bg-white border-2 border-blue-200 rounded-full flex items-center shadow-xl z-20 overflow-hidden">
-                                    {/* Area 1: Time Setting (Click to open picker) */}
-                                    <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer"
-                                        onClick={() => setShowTimePicker(true)}
-                                    >
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
-                                        <span className={`text-[12px] ${timeColor === 'text-white/90' ? 'text-[#007AFF]' : timeColor} font-black uppercase tracking-widest flex items-center gap-1.5`}>
-                                            {event.time}
-                                            <Pencil size={10} className="opacity-40" />
-                                        </span>
-                                        <AnimatePresence>
-                                            {showTimePicker && (
-                                                <TimePicker
-                                                    initialTime={event.time}
-                                                    onSave={(newTime) => {
-                                                        onTimeChange?.(event.id, newTime);
-                                                        setShowTimePicker(false);
-                                                    }}
-                                                    onClose={() => setShowTimePicker(false)}
-                                                />
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
+            {
+                (showTravelTime || showStartBadge) && (
+                    <div className="h-16 w-full flex items-center justify-center relative z-10">
+                        <div className={`absolute inset-0 flex items-center justify-center ${showStartBadge ? 'items-start pt-2' : ''} ${isSkipped ? 'opacity-30' : ''}`}>
+                            {showStartBadge ? (
+                                <div className="flex items-center justify-center relative z-30 group/start">
+                                    <div className="bg-white border-2 border-blue-200 rounded-full flex items-center shadow-xl z-20 overflow-hidden">
+                                        {/* Area 1: Time Setting (Click to open picker) */}
+                                        <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer"
+                                            onClick={() => setShowTimePicker(true)}
+                                        >
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
+                                            <span className={`text-[12px] ${timeColor === 'text-white/90' ? 'text-[#007AFF]' : timeColor} font-black uppercase tracking-widest flex items-center gap-1.5`}>
+                                                {event.time}
+                                                <Pencil size={10} className="opacity-40" />
+                                            </span>
+                                            <AnimatePresence>
+                                                {showTimePicker && (
+                                                    <TimePicker
+                                                        initialTime={event.time}
+                                                        onSave={(newTime) => {
+                                                            onTimeChange?.(event.id, newTime);
+                                                            setShowTimePicker(false);
+                                                        }}
+                                                        onClose={() => setShowTimePicker(false)}
+                                                    />
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
 
-                                    {/* Area 2: 'Now' Button (Instant update) */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const now = new Date();
-                                            const hhmm = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                                            onTimeChange?.(event.id, hhmm);
-                                        }}
-                                        className="flex items-center gap-1.5 text-[#007AFF] hover:bg-blue-50 px-4 py-1.5 transition-colors active:bg-blue-100 h-full"
-                                    >
-                                        <Timer size={13} strokeWidth={2.5} />
-                                        <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">Now</span>
-                                    </button>
+                                        {/* Area 2: 'Now' Button (Instant update) */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const now = new Date();
+                                                const hhmm = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                                                onTimeChange?.(event.id, hhmm);
+                                            }}
+                                            className="flex items-center gap-1.5 text-[#007AFF] hover:bg-blue-50 px-4 py-1.5 transition-colors active:bg-blue-100 h-full"
+                                        >
+                                            <Timer size={13} strokeWidth={2.5} />
+                                            <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">Now</span>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className={`${badgeBgColor} border-2 ${badgeBorderColor} rounded-full px-5 py-2 flex items-center gap-2.5 shadow-xl whitespace-nowrap transition-all duration-500 z-20 hover:scale-105 backdrop-blur-sm`}>
-                                <span className={`text-[11px] ${badgeTextColor} font-black uppercase tracking-widest flex items-center gap-2.5`}>
-                                    <Clock size={14} strokeWidth={3} className={badgeTextColor} />
-                                    {event.travelTime}
-                                </span>
-                            </div>
-                        )}
+                            ) : (
+                                <div className={`${badgeBgColor} border-2 ${badgeBorderColor} rounded-full px-5 py-2 flex items-center gap-2.5 shadow-xl whitespace-nowrap transition-all duration-500 z-20 hover:scale-105 backdrop-blur-sm`}>
+                                    <span className={`text-[11px] ${badgeTextColor} font-black uppercase tracking-widest flex items-center gap-2.5`}>
+                                        <Clock size={14} strokeWidth={3} className={badgeTextColor} />
+                                        {event.travelTime}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* 3. THE CONTENT CARD (POI Icon removed to save space) */}
             <div className={`w-full max-w-[500px] px-2 relative z-10 transition-all duration-300 ${isSkipped ? 'opacity-50' : ''}`}>
@@ -329,7 +352,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center bg-zinc-200/50 rounded-full border border-zinc-300/50 overflow-hidden shadow-sm">
                                         <span className="text-[11px] font-bold text-zinc-400 px-3 py-1 border-r border-zinc-300/30">
-                                            {event.time}
+                                            {timeDisplay}
                                         </span>
                                         <button
                                             onClick={(e) => {
@@ -393,7 +416,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-300 transition-all"
                             >
                                 <div className="flex items-center bg-zinc-100 rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
-                                    <span className={`text-xs font-bold ${timeColor === 'text-white/90' ? 'text-zinc-500' : timeColor} whitespace-nowrap bg-zinc-100 px-3 py-1.5 border-r border-zinc-200/50 min-w-[3.5rem] text-center`}>{event.time}</span>
+                                    <span className={`text-xs font-bold ${timeColor === 'text-white/90' ? 'text-zinc-500' : timeColor} whitespace-nowrap bg-zinc-100 px-3 py-1.5 border-r border-zinc-200/50 min-w-[3.5rem] text-center`}>{timeDisplay}</span>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -440,7 +463,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center bg-[#0B1221]/60 backdrop-blur-md rounded-full border border-white/10 overflow-hidden shadow-lg">
-                                                    <span className={`text-sm font-bold ${timeColor} px-3.5 py-1.5 border-r border-white/5`}>{event.time}</span>
+                                                    <span className={`text-sm font-bold ${timeColor} px-3.5 py-1.5 border-r border-white/5`}>{timeDisplay}</span>
                                                     {isFirst ? (
                                                         <div className="flex items-center gap-2 px-3.5 py-1.5 text-white/90">
                                                             <MapPin size={14} className="text-[#007AFF]" />
@@ -476,7 +499,39 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                         </div>
 
                                         <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>
-                                        {event.description && <p className="text-sm text-slate-200/80 mb-4 leading-relaxed font-medium line-clamp-2 drop-shadow-sm">{event.description}</p>}
+                                        <div className="relative w-full mb-4">
+                                            <input
+                                                ref={descriptionInputRef}
+                                                type="text"
+                                                value={localDescription}
+                                                onChange={(e) => setLocalDescription(e.target.value)}
+                                                onFocus={() => setShowDoneButton(true)}
+                                                onBlur={(e) => {
+                                                    onDescriptionChange?.(event.id, e.target.value);
+                                                    onDescriptionSave?.(event.id, e.target.value);
+                                                    // Delay hiding to allow smooth transition or click events
+                                                    setTimeout(() => setShowDoneButton(false), 200);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                placeholder="Add notes..."
+                                                className="w-full bg-white text-zinc-800 rounded-lg pl-3 pr-16 py-2 font-light italic text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm"
+                                            />
+                                            <AnimatePresence>
+                                                {showDoneButton && (
+                                                    <div
+                                                        // Use div instead of button to avoid submitting if wrapped in form (though not here)
+                                                        // Acting as a visual triggers for blur
+                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#007AFF] text-white text-[10px] font-bold px-3 py-1.5 rounded-md shadow-md cursor-pointer hover:bg-blue-600 transition-colors z-10"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Prevent card click
+                                                            descriptionInputRef.current?.blur(); // Trigger blur -> save
+                                                        }}
+                                                    >
+                                                        Done
+                                                    </div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
 
                                         {(event.duration || event.rating || event.openingHours) && (
                                             <div className="flex flex-col gap-2">
@@ -489,9 +544,30 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                         </div>
                                                     )}
                                                     {event.duration && (
-                                                        <div className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md">
-                                                            <Clock size={13} className="text-[#007AFF]" />
-                                                            <span>{event.duration}</span>
+                                                        <div className="relative group/duration z-50">
+                                                            <div
+                                                                onClick={(e) => { e.stopPropagation(); setShowDurationPicker(true); }}
+                                                                className="flex items-center gap-1.5 bg-[#0B1221]/40 px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-200 shadow-sm backdrop-blur-md cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all select-none"
+                                                            >
+                                                                <Clock size={13} className="text-[#007AFF]" />
+                                                                <span>{event.duration}</span>
+                                                            </div>
+                                                            <AnimatePresence>
+                                                                {showDurationPicker && (
+                                                                    <DurationPicker
+                                                                        durationStr={event.duration}
+                                                                        onSave={(newDuration) => {
+                                                                            onDurationChange?.(event.id, newDuration);
+                                                                            // Don't close immediately to allow rapid adjustment? 
+                                                                            // Actually prompt implies "editing duration... done". 
+                                                                            // But standard behavior for +/- is keep open.
+                                                                            // Let's keep it open, but we need a way to close it. 
+                                                                            // The picker has a backdrop click to close.
+                                                                        }}
+                                                                        onClose={() => setShowDurationPicker(false)}
+                                                                    />
+                                                                )}
+                                                            </AnimatePresence>
                                                         </div>
                                                     )}
                                                 </div>
@@ -551,6 +627,6 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                     )
                 )}
             </div>
-        </div>
+        </div >
     );
 }

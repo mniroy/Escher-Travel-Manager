@@ -1,3 +1,4 @@
+import { db } from '../lib/supabase';
 import { Layout } from '../components/Layout';
 import { useState, useEffect, useMemo } from 'react';
 import { uuidv4 } from '../lib/uuid';
@@ -14,6 +15,35 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Helper functions for time calculation
+// ... existing parseTime/parseDuration ...
+
+const calculateScheduleForList = (sourceEvents: TimelineEvent[], selectedOffsets: number[]) => {
+    const currentOffsets = new Set(selectedOffsets);
+    const currentDayEvents = sourceEvents.filter(e => currentOffsets.has(e.dayOffset || 0));
+    const otherEvents = sourceEvents.filter(e => !currentOffsets.has(e.dayOffset || 0));
+
+    if (currentDayEvents.length === 0) return sourceEvents;
+
+    let currentTime = parseTime(currentDayEvents[0].time);
+
+    const updatedDayEvents = currentDayEvents.map((event, index) => {
+        const parkingBuffer = event.parkingBuffer ?? 10;
+
+        if (index > 0 && event.travelTime) {
+            const travelMins = parseDuration(event.travelTime);
+            currentTime += (travelMins + parkingBuffer);
+        }
+
+        const newTimeStr = formatTime(currentTime);
+        const duration = parseDuration(event.duration);
+        currentTime += duration;
+
+        return { ...event, time: newTimeStr };
+    });
+
+    return [...otherEvents, ...updatedDayEvents];
+};
+
 const parseTime = (str: string) => {
     try {
         if (!str || str.startsWith('NaN')) return 9 * 60; // Heal bad data
@@ -125,6 +155,16 @@ export default function ItineraryPage() {
 
         const newEventsList = [...events];
         newEventsList[index] = { ...newEventsList[index], parkingBuffer: newBuffer };
+
+        recalculateSchedule(newEventsList);
+    };
+
+    const handleDurationChange = (id: string, newDuration: string) => {
+        const index = events.findIndex(e => e.id === id);
+        if (index === -1) return;
+
+        const newEventsList = [...events];
+        newEventsList[index] = { ...newEventsList[index], duration: newDuration };
 
         recalculateSchedule(newEventsList);
     };
@@ -406,6 +446,18 @@ export default function ItineraryPage() {
         }
     };
 
+    const handleDescriptionChange = (id: string, newDescription: string) => {
+        setEvents(prev => prev.map(e => e.id === id ? { ...e, description: newDescription } : e));
+    };
+
+    const handleDescriptionSave = async (id: string, newDescription: string) => {
+        try {
+            await db.updateEvent(id, { description: newDescription });
+        } catch (error) {
+            console.error('Failed to save description:', error);
+        }
+    };
+
     const toggleDate = (offset: number) => {
         // Single Select Mode
         setSelectedDayOffsets([offset]);
@@ -428,11 +480,42 @@ export default function ItineraryPage() {
 
         if (editingEvent && activityData.id) {
             // UPDATE existing event
-            setEvents(prev => prev.map(e =>
-                e.id === activityData.id
-                    ? { ...e, ...activityData, dayOffset: e.dayOffset }
-                    : e
-            ));
+            // We need to access 'events' state, but better to use functional update to be safe?
+            // Actually, 'events' is available in scope.
+            // BUT, if we use 'events' from scope, it might be stale?
+            // Safer to use functional update, but then we can't extract the result easily.
+            // Compromise: We will trust 'events' is relatively fresh or use a temp variable pattern if possible.
+            // React batching means 'events' in this closure might be old if rapid updates happen.
+            // However, for a modal save, it's usually fine.
+
+            // Let's do the Calculate-First approach using current 'events' state,
+            // but we really should use the prev value.
+            // To do this correctly with hooks + side-effect (recalc):
+
+            setEvents(prev => {
+                const updated = prev.map(e =>
+                    e.id === activityData.id
+                        ? { ...e, ...activityData, dayOffset: e.dayOffset }
+                        : e
+                );
+                // Trigger recalc on this new list
+                // We MUST defer this to avoid "cannot update during render" if recalc triggers another setEvents
+                // But recalculateSchedule calls setEvents internally!
+                // So we cannot call it inside the reducer.
+
+                // Solution: Compute locally, call setEvents ONCE with the recalculation result.
+
+                // 1. Compute the basic update
+                // 2. Pass to recalculate logic which returns the fully schedule-adjusted list
+                // 3. Return THAT.
+
+                // We need to lift 'recalculateSchedule' logic to return a value, not just set state.
+                // Refactoring recalculateSchedule to pure function is best.
+                // For now, let's replicate the logic or create a helper that returns the list.
+
+                return calculateScheduleForList(updated, selectedDayOffsets);
+            });
+
             setEditingEvent(null);
         } else {
             // CREATE new event
@@ -440,19 +523,23 @@ export default function ItineraryPage() {
             const newEvent: TimelineEvent = {
                 id: uuidv4(),
                 ...activityData,
-                openingHours: activityData.openingHours, // Explicit assignment
+                openingHours: activityData.openingHours,
                 dayOffset: targetOffset
             };
 
-            await setEvents(prev => {
+            setEvents(prev => {
+                let nextEvents: TimelineEvent[];
                 if (insertIndex !== null) {
                     const thisDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetOffset);
                     const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetOffset);
                     const newDayList = [...thisDayEvents];
                     newDayList.splice(insertIndex, 0, newEvent);
-                    return [...otherEvents, ...newDayList];
+                    nextEvents = [...otherEvents, ...newDayList];
+                } else {
+                    nextEvents = [...prev, newEvent];
                 }
-                return [...prev, newEvent];
+
+                return calculateScheduleForList(nextEvents, selectedDayOffsets);
             });
             setInsertIndex(null);
         }
@@ -958,6 +1045,9 @@ export default function ItineraryPage() {
                                     onSkip={handleSkip}
                                     onTimeChange={handleTimeChange}
                                     onBufferChange={handleBufferChange}
+                                    onDurationChange={handleDurationChange}
+                                    onDescriptionChange={handleDescriptionChange}
+                                    onDescriptionSave={handleDescriptionSave}
                                 />
                             ))}
                         </AnimatePresence>
@@ -1009,7 +1099,10 @@ function DraggableTimelineItem({
     onCheckIn,
     onSkip,
     onTimeChange,
-    onBufferChange
+    onBufferChange,
+    onDurationChange,
+    onDescriptionChange,
+    onDescriptionSave
 }: any) {
     const controls = useDragControls();
 
@@ -1065,6 +1158,9 @@ function DraggableTimelineItem({
                         onSkip={onSkip}
                         onTimeChange={onTimeChange}
                         onBufferChange={onBufferChange}
+                        onDurationChange={onDurationChange}
+                        onDescriptionChange={onDescriptionChange}
+                        onDescriptionSave={onDescriptionSave}
                         selectedDayName={selectedDayName}
                     />
                     {isEditing && (
