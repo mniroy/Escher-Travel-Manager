@@ -70,7 +70,8 @@ export default function PlacesPage() {
             duration: activity.duration,
             status: 'Saved', // Mark as Saved
             dayOffset: -1, // Mark as Unscheduled
-            placeId: activity.placeId // Ensure placeId is saved
+            placeId: activity.placeId, // Ensure placeId is saved
+            address: activity.address // Save the address
         };
 
         setEvents(prev => [...prev, newEvent]);
@@ -81,7 +82,7 @@ export default function PlacesPage() {
     const uniquePlacesMap = new Map<string, TimelineEvent>();
 
     events
-        .filter(e => ['Stay', 'Eat', 'Play'].includes(e.type) && e.status === 'Saved')
+        .filter(e => ['Transport', 'Stay', 'Eat', 'Play'].includes(e.type) && e.status === 'Saved')
         .forEach(e => {
             // Create a unique key for the place
             // prioritization: placeId > googleMapsLink > title
@@ -90,6 +91,20 @@ export default function PlacesPage() {
                 uniquePlacesMap.set(key, e);
             }
         });
+
+    // Helper to extract area from address
+    const getArea = (address?: string, description?: string) => {
+        // Fallback to description if address is missing (often description contains address)
+        const text = address || description;
+        if (!text) return 'Unspecified Location';
+
+        const parts = text.split(',').map(p => p.trim());
+        // Heuristic: Try to grab City/District (usually 3rd from last, or 1st if short)
+        if (parts.length >= 3) {
+            return parts[Math.max(0, parts.length - 3)];
+        }
+        return parts[0] || 'Unspecified Location';
+    };
 
     const filteredPlaces = Array.from(uniquePlacesMap.values())
         .filter(e => {
@@ -100,6 +115,11 @@ export default function PlacesPage() {
                 e.title.toLowerCase().includes(query) ||
                 e.description?.toLowerCase().includes(query)
             );
+        })
+        .sort((a, b) => {
+            const areaA = getArea(a.address, a.description);
+            const areaB = getArea(b.address, b.description);
+            return areaA.localeCompare(areaB) || a.title.localeCompare(b.title);
         });
 
     const [displayLimit, setDisplayLimit] = useState(20);
@@ -216,73 +236,98 @@ export default function PlacesPage() {
 
                         <div className="px-6 pb-24">
                             {filteredPlaces.length > 0 ? (
-                                <div className="grid gap-5 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    {visiblePlaces.map(place => (
-                                        <Link
-                                            to={`/place/${place.id}`}
-                                            key={place.id}
-                                            className="block group"
-                                        >
-                                            <div className="bg-white rounded-[1.75rem] overflow-hidden shadow-xl shadow-blue-900/5 hover:shadow-2xl hover:shadow-blue-900/10 transition-all border border-zinc-100 hover:scale-[1.01] active:scale-[0.99]">
-                                                <div className="h-40 bg-zinc-100 relative overflow-hidden">
-                                                    {place.image ? (
-                                                        <img
-                                                            src={place.image}
-                                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                                            alt={place.title}
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-300">
-                                                            <MapPin size={40} />
-                                                        </div>
-                                                    )}
+                                <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                                    {(() => {
+                                        // Group visible places by area
+                                        const grouped: { area: string; places: TimelineEvent[] }[] = [];
+                                        visiblePlaces.forEach(place => {
+                                            const area = getArea(place.address, place.description);
+                                            const lastGroup = grouped[grouped.length - 1];
+                                            if (lastGroup && lastGroup.area === area) {
+                                                lastGroup.places.push(place);
+                                            } else {
+                                                grouped.push({ area, places: [place] });
+                                            }
+                                        });
 
-                                                    <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
-
-                                                    {/* Type Badge (Category Label - Left Now) */}
-                                                    <div className="absolute top-3 left-3 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 shadow-sm z-20">
-                                                        {place.type}
-                                                    </div>
-
-                                                    {/* Delete Button (Corner Peel - Right Now) */}
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            if (window.confirm('Are you sure you want to delete this place?')) {
-                                                                deleteEvent(place.id);
-                                                            }
-                                                        }}
-                                                        className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 shadow-sm z-20 hover:bg-red-500/80 transition-all active:scale-95"
-                                                        title="Delete from library"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                        return grouped.map((group) => (
+                                            <div key={group.area} className="relative">
+                                                <div className="sticky top-[220px] z-30 pt-2 pb-4 bg-gradient-to-b from-zinc-50 via-zinc-50 to-transparent">
+                                                    <h2 className="text-sm font-black text-zinc-400 uppercase tracking-widest pl-3 border-l-4 border-zinc-200/50 flex items-center gap-2">
+                                                        <MapPin size={12} className="text-zinc-300" />
+                                                        {group.area}
+                                                    </h2>
                                                 </div>
+                                                <div className="flex flex-col gap-5">
+                                                    {group.places.map(place => (
+                                                        <Link
+                                                            to={`/place/${place.id}`}
+                                                            key={place.id}
+                                                            className="block group"
+                                                        >
+                                                            <div className="bg-white rounded-[1.75rem] overflow-hidden shadow-xl shadow-blue-900/5 hover:shadow-2xl hover:shadow-blue-900/10 transition-all border border-zinc-100 hover:scale-[1.01] active:scale-[0.99]">
+                                                                <div className="h-40 bg-zinc-100 relative overflow-hidden">
+                                                                    {place.image ? (
+                                                                        <img
+                                                                            src={place.image}
+                                                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                                            alt={place.title}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-300">
+                                                                            <MapPin size={40} />
+                                                                        </div>
+                                                                    )}
 
-                                                <div className="p-5">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight group-hover:text-[#007AFF] transition-colors line-clamp-1">{place.title}</h3>
-                                                        <div className="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded text-yellow-600 font-bold text-xs">
-                                                            <Star size={10} fill="currentColor" />
-                                                            <span>{place.rating || 'New'}</span>
-                                                        </div>
-                                                    </div>
+                                                                    <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
 
-                                                    <p className="text-xs text-zinc-500 line-clamp-2 mb-4 font-medium leading-relaxed">{place.description}</p>
+                                                                    <div className="absolute top-3 left-3 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 shadow-sm z-20">
+                                                                        {place.type}
+                                                                    </div>
 
-                                                    <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
-                                                        <span className="text-[10px] font-bold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-md">
-                                                            {place.reviews ? `${place.reviews} reviews` : 'No reviews'}
-                                                        </span>
-                                                        <span className="text-xs text-[#007AFF] font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
-                                                            View Details <ArrowRight size={14} />
-                                                        </span>
-                                                    </div>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            if (window.confirm('Are you sure you want to delete this place?')) {
+                                                                                deleteEvent(place.id);
+                                                                            }
+                                                                        }}
+                                                                        className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 shadow-sm z-20 hover:bg-red-500/80 transition-all active:scale-95"
+                                                                        title="Delete from library"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
+
+                                                                <div className="p-5">
+                                                                    <div className="flex justify-between items-start mb-2">
+                                                                        <h3 className="text-lg font-bold text-zinc-900 leading-tight group-hover:text-[#007AFF] transition-colors line-clamp-1">{place.title}</h3>
+                                                                        <div className="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded text-yellow-600 font-bold text-xs">
+                                                                            <Star size={10} fill="currentColor" />
+                                                                            <span>{place.rating || 'New'}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <p className="text-xs text-zinc-500 line-clamp-2 mb-4 font-medium leading-relaxed">{place.description}</p>
+
+                                                                    <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
+                                                                        <span className="text-[10px] font-bold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-md">
+                                                                            {place.reviews ? `${place.reviews} reviews` : 'No reviews'}
+                                                                        </span>
+                                                                        <span className="text-xs text-[#007AFF] font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                                                                            View Details <ArrowRight size={14} />
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
                                                 </div>
                                             </div>
-                                        </Link>
-                                    ))}
+                                        ));
+                                    })()}
+
                                     {displayLimit < filteredPlaces.length && (
                                         <div ref={loaderRef} className="h-10 w-full flex items-center justify-center opacity-50">
                                             <div className="flex gap-1">
