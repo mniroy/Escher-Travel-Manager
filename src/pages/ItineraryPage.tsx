@@ -4,13 +4,14 @@ import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
-import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical } from 'lucide-react';
+import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical, Calendar } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder, useDragControls } from 'framer-motion';
 import { optimizeRoute } from '../lib/googleMaps';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Helper functions for time calculation
 const parseTime = (str: string) => {
@@ -669,9 +670,33 @@ export default function ItineraryPage() {
         };
     }, [filteredEvents]);
 
+    // Real-time Clock
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Helper to format real-time header
+    const formatRealTime = (date: Date) => {
+        let h = date.getHours();
+        const m = date.getMinutes();
+        const period = h >= 12 ? 'PM' : 'AM';
+        if (h > 12) h -= 12;
+        if (h === 0) h = 12;
+
+        const timeStr = `${h}:${m.toString().padStart(2, '0')} ${period}`;
+        // E.g. "Mon, 12 Feb"
+        const dateStr = `${DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+
+        return { timeStr, dateStr };
+    };
+
+    // ... existing stats logic ...
+
     return (
         <Layout>
-
+            {/* ... Modal ... */}
 
             <AddActivityModal
                 isOpen={isModalOpen}
@@ -727,9 +752,19 @@ export default function ItineraryPage() {
 
                 <div className="relative z-10 flex justify-between items-end pb-8">
                     <div>
-                        <h1 className="text-3xl font-['Playfair_Display'] font-black text-white mb-1 leading-tight drop-shadow-md">{tripName}</h1>
-                        <div className="flex items-center text-white/90 text-xs gap-2 font-medium drop-shadow-sm">
-                            <span>{getFormattedDateRange()}</span>
+                        <h1 className="text-3xl font-['Playfair_Display'] font-black text-white mb-2 leading-tight drop-shadow-md">{tripName}</h1>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center text-white/70 text-xs gap-2 font-medium drop-shadow-sm">
+                                <Calendar size={12} />
+                                <span>{getFormattedDateRange()}</span>
+                            </div>
+                            {/* Real Time Clock */}
+                            <div className="flex items-center text-white text-sm gap-2 font-bold drop-shadow-sm mt-1">
+                                <Clock size={14} className="text-[#007AFF]" />
+                                <span>{formatRealTime(now).timeStr}</span>
+                                <span className="text-white/40">|</span>
+                                <span className="text-white/90">{formatRealTime(now).dateStr}</span>
+                            </div>
                         </div>
                     </div>
                     {/* User Avatar / Profile - Removed Settings Button */}
@@ -808,6 +843,18 @@ export default function ItineraryPage() {
                                         <div className="flex gap-2 flex-wrap justify-start px-6 pb-4 overflow-x-auto no-scrollbar">
                                             {tripDates.map((dateObj, i) => {
                                                 const isSelected = selectedDayOffsets.includes(dateObj.offset);
+
+                                                // Check if date is in the past (yesterday or earlier)
+                                                // Create UTC Comparison to avoid timezone issues
+                                                const today = new Date();
+                                                const checkDate = new Date(dateObj.dateObj); // Clone
+
+                                                // Normalize to midnight for simple comparison
+                                                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                                const startOfCheck = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+
+                                                const isPast = startOfCheck < startOfToday;
+
                                                 return (
                                                     <button
                                                         key={i}
@@ -816,11 +863,13 @@ export default function ItineraryPage() {
                                                     flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
                                                     ${isSelected
                                                                 ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                                : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'}
+                                                                : isPast
+                                                                    ? 'bg-zinc-50 text-zinc-300 border-zinc-100 opacity-60 hover:opacity-100 hover:bg-white hover:border-zinc-300 hover:text-zinc-500' // Past style
+                                                                    : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'} // Future/Present style
                                                 `}
                                                     >
-                                                        <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold text-zinc-700'}`}>{dateObj.dateNum}</span>
-                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : 'text-zinc-400'}`}>{dateObj.dayName}</span>
+                                                        <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold'} ${!isSelected && isPast ? 'text-zinc-300' : (!isSelected ? 'text-zinc-700' : '')}`}>{dateObj.dateNum}</span>
+                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : (isPast ? 'text-zinc-300' : 'text-zinc-400')}`}>{dateObj.dayName}</span>
                                                     </button>
                                                 )
                                             })}

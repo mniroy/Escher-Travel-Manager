@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-    const { trips, currentTripId, switchTrip, createNewTrip, tripName, startDate, tripDuration, setTripName, setStartDate, setTripDuration } = useTrip();
+    const { trips, currentTripId, switchTrip, createNewTrip, tripName, startDate, tripDuration, updateTripDetails } = useTrip();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     // Active trip always on top
@@ -153,9 +153,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                             isOpen={isSettingsOpen}
                             onClose={() => setIsSettingsOpen(false)}
                             onSave={(settings) => {
-                                setTripName(settings.tripName);
-                                setStartDate(new Date(settings.startDate));
-                                setTripDuration(settings.duration);
+                                updateTripDetails({
+                                    name: settings.tripName,
+                                    startDate: new Date(settings.startDate),
+                                    duration: settings.duration
+                                });
                                 setIsSettingsOpen(false);
                             }}
                             initialSettings={{

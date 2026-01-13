@@ -21,6 +21,7 @@ interface TripContextType {
     setTripDuration: (days: number) => void;
     placesCoverImage: string;
     setPlacesCoverImage: (url: string) => void;
+    updateTripDetails: (updates: { name?: string; startDate?: Date; duration?: number; coverImage?: string }) => Promise<void>;
 
     // Events
     events: TimelineEvent[];
@@ -370,48 +371,63 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const setTripName = async (name: string) => {
-        setTripNameState(name);
-        if (currentTripId) {
-            // Also update local list
-            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, name } : t));
+    const updateTripDetails = async (updates: { name?: string; startDate?: Date; duration?: number; coverImage?: string }) => {
+        if (!currentTripId) return;
 
-            if (isOnline) await db.updateTrip(currentTripId, { name });
-            else await storage.updateTrip(currentTripId, { name });
+        const dbUpdates: any = {};
 
-            // Attempt to fetch a cover image if one doesn't exist, or just update it based on new name?
-            // Let's only update if the current image is empty or we want to force refresh.
-            // For now, let's try to fetch if we have a valid name.
-            // Debouncing would be ideal here if this is typed, but assuming on-blur for now.
-            fetchTripImage(currentTripId, name);
+        if (updates.name !== undefined) {
+            setTripNameState(updates.name);
+            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, name: updates.name! } : t));
+            dbUpdates.name = updates.name;
+        }
+
+        if (updates.startDate !== undefined) {
+            setStartDateState(updates.startDate);
+            const dateStr = updates.startDate.toISOString().split('T')[0];
+            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, start_date: dateStr } : t));
+            dbUpdates.start_date = dateStr;
+        }
+
+        if (updates.duration !== undefined) {
+            setTripDurationState(updates.duration);
+            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, duration: updates.duration! } : t));
+            dbUpdates.duration = updates.duration;
+        }
+
+        if (updates.coverImage !== undefined) {
+            setPlacesCoverImageState(updates.coverImage);
+            setTrips(prev => prev.map(t => t.id === currentTripId ? { ...t, cover_image: updates.coverImage! } : t));
+            dbUpdates.cover_image = updates.coverImage;
+        }
+
+        if (Object.keys(dbUpdates).length > 0) {
+            if (isOnline) {
+                await db.updateTrip(currentTripId, dbUpdates);
+            } else {
+                // Map db keys back to storage keys if necessary or just pass object if compatible
+                const storageUpdates = {
+                    name: dbUpdates.name,
+                    startDate: dbUpdates.start_date,
+                    duration: dbUpdates.duration,
+                    coverImage: dbUpdates.cover_image
+                };
+                // Remove undefined
+                Object.keys(storageUpdates).forEach(key => (storageUpdates as any)[key] === undefined && delete (storageUpdates as any)[key]);
+                await storage.updateTrip(currentTripId, storageUpdates);
+            }
+        }
+
+        // Fetch image check if name changed
+        if (updates.name) {
+            fetchTripImage(currentTripId, updates.name);
         }
     };
 
-    // ... keep setStartDate, setTripDuration, setPlacesCoverImage ...
-    const setStartDate = async (date: Date) => {
-        setStartDateState(date);
-        if (currentTripId) {
-            const dateStr = date.toISOString().split('T')[0];
-            if (isOnline) await db.updateTrip(currentTripId, { start_date: dateStr });
-            else await storage.updateTrip(currentTripId, { startDate: dateStr });
-        }
-    };
-
-    const setTripDuration = async (days: number) => {
-        setTripDurationState(days);
-        if (currentTripId) {
-            if (isOnline) await db.updateTrip(currentTripId, { duration: days });
-            else await storage.updateTrip(currentTripId, { duration: days });
-        }
-    };
-
-    const setPlacesCoverImage = async (url: string) => {
-        setPlacesCoverImageState(url);
-        if (currentTripId) {
-            if (isOnline) await db.updateTrip(currentTripId, { cover_image: url });
-            else await storage.updateTrip(currentTripId, { coverImage: url });
-        }
-    };
+    const setTripName = async (name: string) => updateTripDetails({ name });
+    const setStartDate = async (date: Date) => updateTripDetails({ startDate: date });
+    const setTripDuration = async (days: number) => updateTripDetails({ duration: days });
+    const setPlacesCoverImage = async (url: string) => updateTripDetails({ coverImage: url });
 
     // ... keep setEvents, deleteEvent ...
     const setEvents = async (eventsOrUpdater: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => {
@@ -484,12 +500,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const tripDates = useMemo(() => {
         return Array.from({ length: tripDuration }, (_, i) => {
             const d = new Date(startDate);
-            d.setDate(d.getDate() + i);
+            d.setUTCDate(d.getUTCDate() + i);
             return {
                 dateObj: d,
-                dayName: DAYS[d.getDay()],
-                dateNum: d.getDate(),
-                fullDate: `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`,
+                dayName: DAYS[d.getUTCDay()],
+                dateNum: d.getUTCDate(),
+                fullDate: `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`,
                 offset: i
             };
         });
@@ -510,6 +526,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             createNewTrip, // New
             switchTrip, // New
             refreshData: loadData,
+            updateTripDetails // New
         }}>
             {children}
         </TripContext.Provider>

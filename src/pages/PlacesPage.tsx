@@ -8,6 +8,7 @@ import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
 import { TimelineEvent } from '../components/TimelineItem';
+import { getArea } from '../lib/utils';
 
 export default function PlacesPage() {
     const { events, setEvents, deleteEvent } = useTrip(); // Need deleteEvent
@@ -92,19 +93,7 @@ export default function PlacesPage() {
             }
         });
 
-    // Helper to extract area from address
-    const getArea = (address?: string, description?: string) => {
-        // Fallback to description if address is missing (often description contains address)
-        const text = address || description;
-        if (!text) return 'Unspecified Location';
 
-        const parts = text.split(',').map(p => p.trim());
-        // Heuristic: Try to grab City/District (usually 3rd from last, or 1st if short)
-        if (parts.length >= 3) {
-            return parts[Math.max(0, parts.length - 3)];
-        }
-        return parts[0] || 'Unspecified Location';
-    };
 
     const filteredPlaces = Array.from(uniquePlacesMap.values())
         .filter(e => {

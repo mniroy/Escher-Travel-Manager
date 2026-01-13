@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, MapPin, ArrowRight, Clock, Link as LinkIcon, Minus, Plus, AlertCircle, Trees } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
 import { parseGoogleMapsUrl, placeTypeToEventType, isGoogleMapsUrl } from '../lib/googleMaps';
+import { getArea } from '../lib/utils';
 
 // Define a type strictly for Events, excluding 'All'
 export type EventCategory = 'Transport' | 'Stay' | 'Eat' | 'Play';
@@ -257,7 +258,7 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                                     <div className="absolute bottom-3 left-4 right-4 text-white">
                                         <h3 className="text-xl font-bold leading-tight drop-shadow-md line-clamp-2">{formData.title}</h3>
                                         <div className="flex items-center gap-1 mt-1 text-xs font-medium text-white/90">
-                                            <span className="opacity-80 line-clamp-1">{formData.description}</span>
+                                            <span className="opacity-80 line-clamp-1">{getArea(formData.address)}</span>
                                         </div>
                                     </div>
                                 </div>

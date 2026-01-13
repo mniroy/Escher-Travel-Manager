@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Plus, Minus, MapPin } from 'lucide-react';
 import { TimelineEvent } from './TimelineItem';
 import { motion } from 'framer-motion';
+import { getArea } from '../lib/utils';
 
 interface PlaceSelectorModalProps {
     isOpen: boolean;
@@ -128,75 +129,106 @@ export function PlaceSelectorModal({ isOpen, onClose, savedPlaces, onSelectPlace
                     </div>
                 </div>
 
-                {/* List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-50/50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-zinc-50/50">
                     {filteredPlaces.length > 0 ? (
-                        filteredPlaces.map(place => (
-                            <div
-                                key={place.id}
-                                onClick={() => setSelectedId(place.id)}
-                                className={`bg-white rounded-xl border border-zinc-100 shadow-sm p-3 transition-all cursor-pointer group hover:border-blue-200 ${selectedId === place.id ? 'ring-2 ring-blue-500 border-transparent' : ''}`}
-                            >
-                                <div className="flex justify-between items-start gap-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">{place.type}</span>
-                                            <h3 className="font-bold text-zinc-900 text-sm line-clamp-1">{place.title}</h3>
-                                        </div>
-                                        <p className="text-xs text-zinc-500 line-clamp-2">{place.description}</p>
-                                    </div>
+                        (() => {
+                            const grouped: { area: string; places: TimelineEvent[] }[] = [];
+                            // Sort by Area then Title
+                            const sorted = [...filteredPlaces].sort((a, b) => {
+                                const areaA = getArea(a.address, a.description);
+                                const areaB = getArea(b.address, b.description);
+                                return areaA.localeCompare(areaB) || a.title.localeCompare(b.title);
+                            });
 
-                                    {/* Duration Controls */}
-                                    <div className="flex items-center gap-2 bg-zinc-50 rounded-lg p-1 border border-zinc-200" onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                            onClick={(e) => adjustDuration(place.id, -30, e)}
-                                            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-600 transition-colors"
-                                        >
-                                            <Minus size={12} strokeWidth={3} />
-                                        </button>
-                                        <span className="text-xs font-bold text-zinc-700 min-w-[40px] text-center">
-                                            {formatDuration(getDuration(place.id))}
-                                        </span>
-                                        <button
-                                            onClick={(e) => adjustDuration(place.id, 30, e)}
-                                            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-600 transition-colors"
-                                        >
-                                            <Plus size={12} strokeWidth={3} />
-                                        </button>
+                            sorted.forEach(place => {
+                                const area = getArea(place.address, place.description);
+                                const lastGroup = grouped[grouped.length - 1];
+                                if (lastGroup && lastGroup.area === area) {
+                                    lastGroup.places.push(place);
+                                } else {
+                                    grouped.push({ area, places: [place] });
+                                }
+                            });
+
+                            return grouped.map(group => (
+                                <div key={group.area} className="space-y-3">
+                                    <div className="pt-2 pb-1 px-1">
+                                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                            <MapPin size={10} className="text-zinc-300" />
+                                            {group.area}
+                                        </h3>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {group.places.map(place => (
+                                            <div
+                                                key={place.id}
+                                                onClick={() => setSelectedId(place.id)}
+                                                className={`bg-white rounded-xl border border-zinc-100 shadow-sm p-3 transition-all cursor-pointer group hover:border-blue-200 ${selectedId === place.id ? 'ring-2 ring-blue-500 border-transparent' : ''}`}
+                                            >
+                                                <div className="flex justify-between items-start gap-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">{place.type}</span>
+                                                            <h3 className="font-bold text-zinc-900 text-sm line-clamp-1">{place.title}</h3>
+                                                        </div>
+                                                        <p className="text-xs text-zinc-500 line-clamp-1 font-medium">{getArea(place.address, place.description)}</p>
+                                                    </div>
+
+                                                    {/* Duration Controls */}
+                                                    <div className="flex items-center gap-2 bg-zinc-50 rounded-lg p-1 border border-zinc-200" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={(e) => adjustDuration(place.id, -30, e)}
+                                                            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-600 transition-colors"
+                                                        >
+                                                            <Minus size={12} strokeWidth={3} />
+                                                        </button>
+                                                        <span className="text-xs font-bold text-zinc-700 min-w-[40px] text-center">
+                                                            {formatDuration(getDuration(place.id))}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => adjustDuration(place.id, 30, e)}
+                                                            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-600 transition-colors"
+                                                        >
+                                                            <Plus size={12} strokeWidth={3} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Start/End Toggles */}
+                                                <div className="flex items-center gap-4 mt-3 px-1">
+                                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
+                                                        <div
+                                                            onClick={(e) => toggleStart(place.id, e)}
+                                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${startPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
+                                                        >
+                                                            {startPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
+                                                        </div>
+                                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${startPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>Start</span>
+                                                    </label>
+
+                                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
+                                                        <div
+                                                            onClick={(e) => toggleEnd(place.id, e)}
+                                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${endPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
+                                                        >
+                                                            {endPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
+                                                        </div>
+                                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${endPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>End</span>
+                                                    </label>
+                                                </div>
+
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleSelect(place); }}
+                                                    className="w-full mt-3 bg-[#007AFF] text-white py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    Add to Itinerary
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-
-                                {/* Start/End Toggles */}
-                                <div className="flex items-center gap-4 mt-3 px-1">
-                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
-                                        <div
-                                            onClick={(e) => toggleStart(place.id, e)}
-                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${startPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
-                                        >
-                                            {startPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
-                                        </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${startPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>Start</span>
-                                    </label>
-
-                                    <label className="flex items-center gap-2 cursor-pointer group/chk" onClick={(e) => e.stopPropagation()}>
-                                        <div
-                                            onClick={(e) => toggleEnd(place.id, e)}
-                                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${endPlaces.has(place.id) ? 'bg-[#007AFF] border-[#007AFF]' : 'border-zinc-300 bg-white group-hover/chk:border-blue-400'}`}
-                                        >
-                                            {endPlaces.has(place.id) && <Plus size={10} className="text-white" strokeWidth={4} />}
-                                        </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${endPlaces.has(place.id) ? 'text-[#007AFF]' : 'text-zinc-400'}`}>End</span>
-                                    </label>
-                                </div>
-
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleSelect(place); }}
-                                    className="w-full mt-3 bg-[#007AFF] text-white py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
-                                >
-                                    Add to Itinerary
-                                </button>
-                            </div>
-                        ))
+                            ));
+                        })()
                     ) : (
                         <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-400">
                             <div className="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mb-3">
