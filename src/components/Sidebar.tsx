@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Map, Calendar, Settings } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { TripSettingsModal } from './TripSettingsModal';
 
 interface SidebarProps {

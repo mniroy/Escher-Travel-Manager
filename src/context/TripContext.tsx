@@ -133,7 +133,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             let trip = tripData;
             if (!trip) {
                 if (isOnline) {
-                    trip = await db.getTrip(tripId);
+                    const data = await db.getTrip(tripId);
+                    trip = data || undefined;
                 } else {
                     trip = await storage.getTrip(tripId) as any;
                 }
