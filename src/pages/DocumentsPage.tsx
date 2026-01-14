@@ -6,8 +6,6 @@ import { useTrip } from '../context/TripContext';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase'; // Import supabase
 
-type DocCategory = 'Transport' | 'Accommodation' | 'Identity' | 'Finance' | 'Activity' | 'Note' | 'Other';
-
 interface DocumentItem {
     id: string;
     title: string;
