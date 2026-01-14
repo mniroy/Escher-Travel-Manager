@@ -51,7 +51,7 @@ export function Layout({ children, showNav = true, fullScreen = false }: LayoutP
             </div>
 
             {/* Header - Logo (under content, above bg) */}
-            <div className="absolute top-0 right-0 z-20 px-6 pt-14 pb-4 flex flex-col items-end pointer-events-none">
+            <div className="fixed top-0 right-0 z-[5] px-6 pt-14 pb-4 flex flex-col items-end pointer-events-none">
                 <h1 className="font-['Playfair_Display'] font-black text-2xl tracking-tight text-white leading-none drop-shadow-md">
                     ESCHER
                 </h1>
