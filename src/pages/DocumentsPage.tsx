@@ -1,6 +1,6 @@
 
 import { Layout } from '../components/Layout';
-import { FileText, Plus, Tag, Upload, X, Check, Search, Trash2 } from 'lucide-react'; // Added Trash2
+import { FileText, Plus, Tag, Upload, X, Check, Search, Trash2, Sparkles, Download, MapPin, Plane } from 'lucide-react'; // Added Trash2, Sparkles, Download, MapPin, Plane
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,7 @@ interface DocumentItem {
     size: string;
     category: DocCategory; // Added category
     fileUrl?: string; // Added fileUrl
+    metadata?: any; // AI Extracted info
 }
 
 // Light mode colors
@@ -27,7 +28,7 @@ const CATEGORY_COLORS: Record<DocCategory, { iconBg: string, iconColor: string, 
 };
 
 export default function DocumentsPage() {
-    const { currentTripId } = useTrip();
+    const { currentTripId, refreshData } = useTrip();
     const [sortMode, setSortMode] = useState<'date' | 'category'>('date');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -35,7 +36,6 @@ export default function DocumentsPage() {
     const [localDocs, setLocalDocs] = useState<DocumentItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState<DocCategory>('Other');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { scrollY } = useScroll();
@@ -57,7 +57,8 @@ export default function DocumentsPage() {
                         date: new Date(d.created_at).toLocaleDateString(),
                         size: d.size || '?',
                         category: d.category,
-                        fileUrl: d.file_url
+                        fileUrl: d.file_url,
+                        metadata: d.metadata
                     }));
                     setLocalDocs(formatted);
                 } else {
@@ -118,8 +119,7 @@ export default function DocumentsPage() {
                     tripId: currentTripId,
                     fileUrl: publicUrl,
                     fileName: selectedFile.name,
-                    fileType: selectedFile.type,
-                    category: selectedCategory // Pass selected category
+                    fileType: selectedFile.type
                 })
             });
 
@@ -135,15 +135,21 @@ export default function DocumentsPage() {
                 date: new Date().toLocaleDateString(),
                 size: `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`,
                 category: newDoc.category,
-                fileUrl: newDoc.file_url
+                fileUrl: newDoc.file_url,
+                metadata: newDoc.metadata
             }, ...prev]);
 
-            setToastMessage(`Uploaded ${selectedFile.name}`);
-            setTimeout(() => setToastMessage(null), 3000);
+            if (result.analysis?.autoCreatedEvent) {
+                setToastMessage(`Saved ${result.analysis.title} & created itinerary card!`);
+                // Force global refresh to show the new event in Itinerary immediately
+                refreshData();
+            } else {
+                setToastMessage(`Uploaded ${result.analysis?.title || selectedFile.name}`);
+            }
+            setTimeout(() => setToastMessage(null), 4000);
 
             // Allow another upload
             setSelectedFile(null);
-            setSelectedCategory('Other');
             setIsUploadOpen(false);
 
         } catch (error) {
@@ -182,6 +188,25 @@ export default function DocumentsPage() {
 
     const handleOpenDocument = (url?: string) => {
         if (url) window.open(url, '_blank');
+    };
+
+    const handleDownloadDocument = async (url?: string, filename?: string) => {
+        if (!url) return;
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'document';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed:', error);
+            window.open(url, '_blank'); // Fallback
+        }
     };
 
     return (
@@ -270,29 +295,155 @@ export default function DocumentsPage() {
                                                 initial={{ opacity: 0, scale: 0.95 }}
                                                 animate={{ opacity: 1, scale: 1 }}
                                                 onClick={() => handleOpenDocument(doc.fileUrl)}
-                                                className="bg-white border border-zinc-100 rounded-2xl p-4 flex items-center gap-4 hover:shadow-lg hover:shadow-zinc-200/50 hover:border-blue-100 transition-all cursor-pointer group active:scale-[0.99]"
+                                                className="cursor-pointer group active:scale-[0.99] relative overflow-hidden"
                                             >
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${colors.iconBg} ${colors.iconColor}`}>
-                                                    <FileText size={20} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-bold text-zinc-900 truncate group-hover:text-[#007AFF] transition-colors text-sm mb-1">{doc.title}</h3>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border border-transparent ${colors.tagBg} ${colors.tagText}`}>
-                                                            {doc.category}
-                                                        </span>
-                                                        <span className="text-[10px] text-zinc-400 font-medium">{doc.date} • {doc.size}</span>
+                                                {doc.metadata?.flightDetails ? (
+                                                    /* New Premium Flight Card Design */
+                                                    <div className="flex flex-col rounded-3xl overflow-hidden shadow-2xl shadow-blue-900/20 border border-white/10 group-hover:scale-[1.02] transition-transform duration-300">
+                                                        {/* Top Section (Dark/Navy) */}
+                                                        <div className="bg-[#0A1633] p-6 text-white relative">
+                                                            <div className="flex justify-between items-start mb-6">
+                                                                <div className="flex flex-col">
+                                                                    <div className="flex items-center gap-2 opacity-80 mb-1.5">
+                                                                        <Plane size={12} className="rotate-90" />
+                                                                        <span className="text-sm font-black uppercase tracking-wider">
+                                                                            {doc.metadata.flightDetails.departureTime}
+                                                                            {doc.metadata.flightDetails.departureTimeZone && <span className="ml-1 opacity-50 text-[10px]">{doc.metadata.flightDetails.departureTimeZone}</span>}
+                                                                        </span>
+                                                                    </div>
+                                                                    <h2 className="text-4xl font-black tracking-tighter leading-none">{doc.metadata.flightDetails.originCode}</h2>
+                                                                    <p className="text-[11px] font-medium opacity-50 mt-1">{doc.metadata.flightDetails.originCity}</p>
+                                                                </div>
+
+                                                                {/* Duration Centerpiece */}
+                                                                <div className="flex-1 flex flex-col items-center justify-center px-4 relative mt-4">
+                                                                    <div className="w-full h-[1px] bg-white/10 absolute top-1/2 left-0" />
+                                                                    <div className="bg-[#0A1633] px-3 z-10">
+                                                                        <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest whitespace-nowrap">{doc.metadata.flightDetails.duration}</span>
+                                                                    </div>
+                                                                    {/* Curved Visual Line */}
+                                                                    <svg className="absolute top-[-20px] w-full h-12 pointer-events-none opacity-20" viewBox="0 0 100 20">
+                                                                        <path d="M 0 20 Q 50 0 100 20" fill="none" stroke="currentColor" strokeWidth="1" />
+                                                                    </svg>
+                                                                </div>
+
+                                                                <div className="flex flex-col items-end">
+                                                                    <div className="flex items-center gap-2 opacity-80 mb-1.5">
+                                                                        <span className="text-sm font-black uppercase tracking-wider">
+                                                                            {doc.metadata.flightDetails.arrivalTime}
+                                                                            {doc.metadata.flightDetails.arrivalTimeTimeZone && <span className="ml-1 opacity-50 text-[10px]">{doc.metadata.flightDetails.arrivalTimeTimeZone}</span>}
+                                                                        </span>
+                                                                        <Plane size={12} className="rotate-180" />
+                                                                    </div>
+                                                                    <h2 className="text-4xl font-black tracking-tighter leading-none text-right">{doc.metadata.flightDetails.destinationCode}</h2>
+                                                                    <p className="text-[11px] font-medium opacity-50 mt-1 text-right">{doc.metadata.flightDetails.destinationCity}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Bottom Section (Premium Blue) */}
+                                                        <div className="bg-[#007AFF] p-6 text-white grid grid-cols-3 gap-4 border-t border-white/10">
+                                                            <div className="flex flex-col">
+                                                                <h3 className="text-lg font-black leading-none mb-1">{doc.metadata.flightDetails.flightNumber}</h3>
+                                                                <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Flight number</p>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <h3 className="text-lg font-black leading-none mb-1">{doc.metadata.flightDetails.gate || 'TBD'}</h3>
+                                                                <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Gate no.</p>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <h3 className="text-lg font-black leading-none mb-1">{doc.metadata.flightDetails.seat || 'TBD'}</h3>
+                                                                <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Seat no.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    /* Standard Card and Original Content */
+                                                    <div className="bg-white border border-zinc-100 rounded-3xl p-5 flex flex-col gap-4 hover:shadow-xl hover:shadow-zinc-200/50 hover:border-blue-200 transition-all">
+                                                        {doc.metadata && (
+                                                            <div className="absolute top-0 right-0">
+                                                                <div className="bg-blue-500 text-white p-1.5 rounded-bl-2xl shadow-sm">
+                                                                    <Sparkles size={12} />
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${colors.iconBg} ${colors.iconColor} shadow-sm border border-white/50`}>
+                                                                <FileText size={24} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border border-transparent shadow-sm ${colors.tagBg} ${colors.tagText}`}>
+                                                                        {doc.category}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-zinc-400 font-bold">{doc.size}</span>
+                                                                </div>
+                                                                <h3 className="font-black text-zinc-900 truncate group-hover:text-[#007AFF] transition-colors text-base">{doc.title}</h3>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* AI Extracted Info Card Section */}
+                                                        {doc.metadata && (
+                                                            <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 flex flex-col gap-2.5">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                                        <Sparkles size={10} className="text-blue-500" />
+                                                                        AI Extracted Info
+                                                                    </span>
+                                                                    {doc.metadata.time && (
+                                                                        <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-lg border border-zinc-100 text-zinc-600 shadow-sm">
+                                                                            {doc.metadata.time}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <p className="text-xs font-bold text-zinc-800 leading-snug">
+                                                                        {doc.metadata.title}
+                                                                    </p>
+                                                                    {doc.metadata.description && (
+                                                                        <p className="text-[11px] text-zinc-500 leading-relaxed italic">
+                                                                            "{doc.metadata.description}"
+                                                                        </p>
+                                                                    )}
+                                                                    {doc.metadata.address && (
+                                                                        <div className="flex items-start gap-1.5 mt-1">
+                                                                            <MapPin size={10} className="text-zinc-400 mt-0.5 shrink-0" />
+                                                                            <p className="text-[10px] text-zinc-400 font-medium leading-tight line-clamp-1">
+                                                                                {doc.metadata.address}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Footer Actions (Applies to both) */}
+                                                <div className="flex items-center justify-between pt-1 px-1">
+                                                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{doc.date}</span>
+                                                    <div className="flex gap-2">
+                                                        {/* Download Button */}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDownloadDocument(doc.fileUrl, doc.title); }}
+                                                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-500 hover:bg-[#007AFF] hover:text-white transition-all shadow-sm active:scale-95"
+                                                            title="Download document"
+                                                        >
+                                                            <Download size={16} />
+                                                        </button>
+
+                                                        {/* Delete Button */}
+                                                        <button
+                                                            onClick={(e) => handleDelete(doc.id, doc.fileUrl, e)}
+                                                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-500 hover:bg-red-500 hover:text-white transition-all shadow-sm active:scale-95"
+                                                            title="Delete document"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </div>
-
-                                                {/* Delete Button */}
-                                                <button
-                                                    onClick={(e) => handleDelete(doc.id, doc.fileUrl, e)}
-                                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition-colors z-10"
-                                                    title="Delete document"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
                                             </motion.div>
                                         </div>
                                     );
@@ -356,10 +507,14 @@ export default function DocumentsPage() {
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={isUploading}
-                                                className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mb-4"
+                                                className="w-full py-4 rounded-xl bg-[#007AFF] text-white font-bold hover:bg-[#0066CC] transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mb-3"
                                             >
                                                 Select File
                                             </button>
+                                            <div className="flex items-center justify-center gap-2 text-zinc-400">
+                                                <Sparkles size={14} className="text-blue-400" />
+                                                <span className="text-[10px] font-bold uppercase tracking-widest">Enhanced by Gemini AI</span>
+                                            </div>
                                         </>
                                     ) : (
                                         <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -379,21 +534,11 @@ export default function DocumentsPage() {
                                                 </button>
                                             </div>
 
-                                            <div className="text-left">
-                                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block ml-1">Select Category</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {(Object.keys(CATEGORY_COLORS) as DocCategory[]).map(cat => (
-                                                        <button
-                                                            key={cat}
-                                                            onClick={() => setSelectedCategory(cat)}
-                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${selectedCategory === cat
-                                                                ? 'bg-zinc-900 text-white border-zinc-900 shadow-md transform scale-105'
-                                                                : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
-                                                                }`}
-                                                        >
-                                                            {cat}
-                                                        </button>
-                                                    ))}
+                                            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 flex items-start gap-3 mb-2">
+                                                <Sparkles size={16} className="text-blue-500 mt-0.5" />
+                                                <div className="text-left">
+                                                    <p className="text-[11px] font-bold text-blue-900 leading-tight">Gemini AI Analysis</p>
+                                                    <p className="text-[10px] text-blue-700/70 leading-relaxed">We'll automatically categorize and rename your document for better organization.</p>
                                                 </div>
                                             </div>
 
@@ -402,7 +547,7 @@ export default function DocumentsPage() {
                                                 disabled={isUploading}
                                                 className="w-full py-4 mt-2 rounded-xl bg-black text-white font-bold hover:bg-zinc-800 transition-all shadow-lg active:scale-[0.98] disabled:opacity-70"
                                             >
-                                                {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                                                {isUploading ? 'Analyzing...' : 'Confirm & Analyze'}
                                             </button>
                                         </div>
                                     )}
@@ -410,6 +555,7 @@ export default function DocumentsPage() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
+                                    accept="image/*,application/pdf"
                                     className="hidden"
                                     onChange={onFileSelect}
                                     disabled={isUploading}

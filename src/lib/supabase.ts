@@ -77,6 +77,7 @@ export interface DbDocument {
     size: string | null;
     mime_type: string | null;
     file_url: string | null;
+    metadata: any | null;
     created_at: string;
     updated_at: string;
 }
