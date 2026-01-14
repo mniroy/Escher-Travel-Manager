@@ -16,7 +16,10 @@ import { parseTime, formatTime, parseDuration } from '../lib/utils';
 // So we can use utils.parseTime.
 
 const getTodayHours = (hours: string[] | undefined, selectedDayName?: string) => {
-    if (!hours || !Array.isArray(hours) || hours.length === 0) return null;
+    // If no hours data is available, assume it's open 24 hours as per request
+    if (!hours || !Array.isArray(hours) || hours.length === 0) {
+        return { text: "Open 24 Hours", open: 0, close: 24 * 60, is24Hours: true };
+    }
 
     let dayStr: string | undefined;
 
@@ -72,7 +75,7 @@ const getTimeColor = (eventTime: string | null | undefined, open: number, close:
     const time = parseTime(eventTime);
     if (!time) return 'text-white/90';
 
-    if (open === 0 && close === 24 * 60) return 'text-emerald-400'; // 24h is good
+    if (open === 0 && close === 24 * 60) return 'text-white/90'; // 24h is always open
 
     if (time < open || time >= close) return 'text-red-400';
 
@@ -140,8 +143,17 @@ export interface TimelineItemProps {
 }
 
 export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, selectedDayName }: TimelineItemProps) {
-    const [localDescription, setLocalDescription] = useState(event.description || '');
-    useEffect(() => { setLocalDescription(event.description || ''); }, [event.description]);
+    // Helper to ensure we don't display the address as the description
+    const getCleanDescription = () => {
+        const desc = event.description?.trim();
+        const addr = event.address?.trim();
+        // If description is exactly the address, show empty so placeholder appears
+        if (desc && addr && desc === addr) return '';
+        return event.description || '';
+    };
+
+    const [localDescription, setLocalDescription] = useState(getCleanDescription());
+    useEffect(() => { setLocalDescription(getCleanDescription()); }, [event.description, event.address]);
 
     const navigate = useNavigate();
     const handleCardClick = () => {

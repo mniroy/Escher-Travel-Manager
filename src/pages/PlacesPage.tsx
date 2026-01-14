@@ -1,5 +1,5 @@
 import { Layout } from '../components/Layout';
-import { MapPin, Search, Star, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { MapPin, Search, Star, ArrowRight, Plus, Trash2, Pencil, Check } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState, useEffect, useRef } from 'react';
 import { uuidv4 } from '../lib/uuid';
@@ -14,7 +14,13 @@ export default function PlacesPage() {
     const { events, setEvents, deleteEvent } = useTrip(); // Need deleteEvent
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [bgImage, setBgImage] = useState<string>('https://images.unsplash.com/photo-1555400038-63f5ba517a47?auto=format&fit=crop&w=1000&q=80');
+
+    const handleUpdateType = (id: string, newType: 'Transport' | 'Stay' | 'Eat' | 'Play') => {
+        setEvents(prev => prev.map(e => e.id === id ? { ...e, type: newType } : e));
+        setEditingId(null);
+    };
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const { scrollY } = useScroll();
@@ -270,9 +276,40 @@ export default function PlacesPage() {
 
                                                                     <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-black/50 to-transparent" />
 
-                                                                    <div className="absolute top-3 left-3 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 shadow-sm z-20">
-                                                                        {place.type}
-                                                                    </div>
+                                                                    {editingId === place.id ? (
+                                                                        <div
+                                                                            className="absolute top-3 left-3 z-30 flex items-center bg-white rounded-full shadow-lg overflow-hidden animate-in fade-in zoom-in duration-200"
+                                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                        >
+                                                                            <select
+                                                                                value={place.type}
+                                                                                onChange={(e) => handleUpdateType(place.id, e.target.value as any)}
+                                                                                onBlur={() => setEditingId(null)}
+                                                                                autoFocus
+                                                                                className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider bg-transparent border-none focus:ring-0 cursor-pointer py-1.5 pl-3 pr-8 appearance-none outline-none"
+                                                                            >
+                                                                                <option value="Stay">Stay</option>
+                                                                                <option value="Eat">Eat</option>
+                                                                                <option value="Play">Play</option>
+                                                                                <option value="Transport">Transport</option>
+                                                                            </select>
+                                                                            <div className="absolute right-2 pointer-events-none text-zinc-400">
+                                                                                <Check size={10} />
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                setEditingId(place.id);
+                                                                            }}
+                                                                            className="absolute top-3 left-3 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 shadow-sm z-20 flex items-center gap-1.5 hover:bg-black/50 transition-colors group/badge"
+                                                                        >
+                                                                            {place.type}
+                                                                            <Pencil size={10} className="text-white/70 group-hover/badge:text-white" />
+                                                                        </button>
+                                                                    )}
 
                                                                     <button
                                                                         onClick={(e) => {
