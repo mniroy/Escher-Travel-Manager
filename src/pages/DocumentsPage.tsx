@@ -6,22 +6,24 @@ import { useTrip } from '../context/TripContext';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase'; // Import supabase
 
-type DocCategory = 'Transport' | 'Accommodation' | 'Identity' | 'Finance' | 'Other';
+type DocCategory = 'Transport' | 'Accommodation' | 'Identity' | 'Finance' | 'Activity' | 'Note' | 'Other';
 
 interface DocumentItem {
     id: string;
     title: string;
     date: string;
     size: string;
-    category: DocCategory; // Added category
-    fileUrl?: string; // Added fileUrl
-    metadata?: any; // AI Extracted info
+    category: string; // Keep as string to handle legacy/unknown types
+    fileUrl?: string;
+    metadata?: any;
 }
 
 // Light mode colors
-const CATEGORY_COLORS: Record<DocCategory, { iconBg: string, iconColor: string, tagBg: string, tagText: string }> = {
+const CATEGORY_COLORS: Record<string, { iconBg: string, iconColor: string, tagBg: string, tagText: string }> = {
     'Transport': { iconBg: 'bg-blue-50', iconColor: 'text-blue-600', tagBg: 'bg-blue-50', tagText: 'text-blue-600' },
     'Accommodation': { iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', tagBg: 'bg-emerald-50', tagText: 'text-emerald-600' },
+    'Activity': { iconBg: 'bg-violet-50', iconColor: 'text-violet-600', tagBg: 'bg-violet-50', tagText: 'text-violet-600' },
+    'Note': { iconBg: 'bg-yellow-50', iconColor: 'text-yellow-600', tagBg: 'bg-yellow-50', tagText: 'text-yellow-600' },
     'Identity': { iconBg: 'bg-purple-50', iconColor: 'text-purple-600', tagBg: 'bg-purple-50', tagText: 'text-purple-600' },
     'Finance': { iconBg: 'bg-amber-50', iconColor: 'text-amber-600', tagBg: 'bg-amber-50', tagText: 'text-amber-600' },
     'Other': { iconBg: 'bg-zinc-100', iconColor: 'text-zinc-500', tagBg: 'bg-zinc-100', tagText: 'text-zinc-500' }
@@ -56,7 +58,7 @@ export default function DocumentsPage() {
                         title: d.title,
                         date: new Date(d.created_at).toLocaleDateString(),
                         size: d.size || '?',
-                        category: d.category,
+                        category: d.category || 'Other',
                         fileUrl: d.file_url,
                         metadata: d.metadata
                     }));
@@ -77,7 +79,7 @@ export default function DocumentsPage() {
         }
 
         if (sortMode === 'category') {
-            docs.sort((a, b) => a.category.localeCompare(b.category));
+            docs.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
         } else {
             // Default to date sort (newest first)
             // Assuming date string is parseable, or we can use id if chronological
@@ -99,10 +101,20 @@ export default function DocumentsPage() {
         setIsUploading(true);
         try {
             // 1. Upload to Supabase Storage
-            const fileName = `${currentTripId}/${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize filename
+            const fileName = `${currentTripId}/${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+
+            // Limit file size check (e.g. 10MB)
+            if (selectedFile.size > 10 * 1024 * 1024) {
+                throw new Error('File too large (Max 10MB)');
+            }
+
             const { error: uploadError } = await supabase.storage
                 .from('trip_docs')
-                .upload(fileName, selectedFile);
+                .upload(fileName, selectedFile, {
+                    cacheControl: '3600',
+                    upsert: false,
+                    contentType: selectedFile.type
+                });
 
             if (uploadError) throw uploadError;
 
@@ -306,9 +318,12 @@ export default function DocumentsPage() {
                                                                 <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Passengers</span>
                                                                 <div className="flex gap-2 flex-wrap">
                                                                     {(doc.metadata.flightDetails.passengers || []).length > 0 ? (
-                                                                        doc.metadata.flightDetails.passengers.map((p: string, i: number) => (
-                                                                            <span key={i} className="text-[11px] font-bold text-white/80">{p}{i < doc.metadata.flightDetails.passengers.length - 1 ? ',' : ''}</span>
-                                                                        ))
+                                                                        doc.metadata.flightDetails.passengers.map((p: any, i: number) => {
+                                                                            const pName = typeof p === 'string' ? p : (p?.name || 'Traveler');
+                                                                            return (
+                                                                                <span key={i} className="text-[11px] font-bold text-white/80">{pName}{i < doc.metadata.flightDetails.passengers.length - 1 ? ',' : ''}</span>
+                                                                            );
+                                                                        })
                                                                     ) : (
                                                                         <span className="text-[11px] font-bold text-white/40 italic">Not specified</span>
                                                                     )}
@@ -331,7 +346,7 @@ export default function DocumentsPage() {
                                                                                 <Plane size={12} className="rotate-90 text-blue-400" />
                                                                                 <span className="text-sm font-black uppercase tracking-wider">
                                                                                     {flight.departureTime}
-                                                                                    {flight.departureTimeZone && <span className="ml-1 opacity-50 text-[10px]">{flight.departureTimeZone}</span>}
+                                                                                    {flight.departureTimeZone && <span className="ml-1 text-blue-200 text-[10px] font-bold">{flight.departureTimeZone}</span>}
                                                                                 </span>
                                                                             </div>
                                                                             <h2 className="text-4xl font-black tracking-tighter leading-none">{flight.originCode}</h2>
@@ -339,14 +354,49 @@ export default function DocumentsPage() {
                                                                         </div>
 
                                                                         {/* Duration Centerpiece */}
+                                                                        {/* Duration Centerpiece */}
                                                                         <div className="flex-1 flex flex-col items-center justify-center px-4 relative mt-4">
                                                                             <div className="bg-[#0A1633] px-3 z-10 mb-1">
-                                                                                <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">{flight.date}</span>
+                                                                                <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">
+                                                                                    {(() => {
+                                                                                        const d = typeof flight.date === 'string' ? flight.date : '';
+                                                                                        if (!d) return '';
+                                                                                        try {
+                                                                                            // Check if date is YYYY-MM-DD
+                                                                                            if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                                                                const [y, m, day] = d.split('-').map(Number);
+                                                                                                // Create local date to avoid timezone shifts
+                                                                                                const date = new Date(y, m - 1, day);
+                                                                                                return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                                                                                            }
+                                                                                            return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                                                                                        } catch (e) { return d; }
+                                                                                    })()}
+                                                                                </span>
                                                                             </div>
                                                                             <div className="w-full h-[1px] bg-white/10 absolute top-1/2 left-0" />
-                                                                            <div className="bg-[#0A1633] px-3 z-10">
-                                                                                <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest whitespace-nowrap">{flight.duration}</span>
+
+                                                                            {/* Duration Badge */}
+                                                                            <div className="bg-[#0A1633] px-3 z-10 mt-1">
+                                                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
+                                                                                    {(() => {
+                                                                                        if (typeof flight.duration === 'string' && flight.duration) return flight.duration;
+                                                                                        if (flight.departureTime && flight.arrivalTime) {
+                                                                                            try {
+                                                                                                const [h1, m1] = flight.departureTime.split(':').map(Number);
+                                                                                                const [h2, m2] = flight.arrivalTime.split(':').map(Number);
+                                                                                                let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+                                                                                                if (diff < 0) diff += 24 * 60;
+                                                                                                const h = Math.floor(diff / 60);
+                                                                                                const m = diff % 60;
+                                                                                                return `${h}h ${m}m`;
+                                                                                            } catch (e) { return '--'; }
+                                                                                        }
+                                                                                        return '--';
+                                                                                    })()}
+                                                                                </span>
                                                                             </div>
+
                                                                             {/* Curved Visual Line */}
                                                                             <svg className="absolute top-[-20px] w-full h-12 pointer-events-none opacity-20" viewBox="0 0 100 20">
                                                                                 <path d="M 0 20 Q 50 0 100 20" fill="none" stroke="currentColor" strokeWidth="1" />
@@ -581,7 +631,8 @@ export default function DocumentsPage() {
                                                                         <Sparkles size={10} className="text-blue-500" />
                                                                         AI Extracted Info
                                                                     </span>
-                                                                    {doc.metadata.time && (
+                                                                    {/* Default text if string, empty if object/null */}
+                                                                    {typeof doc.metadata.time === 'string' && doc.metadata.time && (
                                                                         <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-lg border border-zinc-100 text-zinc-600 shadow-sm">
                                                                             {doc.metadata.time}
                                                                         </span>
@@ -590,9 +641,9 @@ export default function DocumentsPage() {
 
                                                                 <div className="space-y-1.5">
                                                                     <p className="text-xs font-bold text-zinc-800 leading-snug">
-                                                                        {doc.metadata.title}
+                                                                        {typeof doc.metadata.title === 'string' ? doc.metadata.title : ''}
                                                                     </p>
-                                                                    {doc.metadata.description && (
+                                                                    {typeof doc.metadata.description === 'string' && doc.metadata.description && (
                                                                         <p className="text-[11px] text-zinc-500 leading-relaxed italic">
                                                                             "{doc.metadata.description}"
                                                                         </p>

@@ -71,7 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             Determine the type and extract specific details:
 
             1. **Flight** (Boarding Pass/Booking):
-                - bookingCode, passengers, flights array (origin, destination, date, time, flightNumber, etc.) as defined before.
+                - bookingCode, passengers
+                - flights array: origin (code/city), destination (code/city), date, departureTime, arrivalTime, flightNumber, duration, departureTimeZone (INFER from Origin City/Airport if not explicit, e.g. UTC+7), arrivalTimeZone (INFER from Destination City/Airport)
 
             2. **Accommodation** (Hotel/Airbnb):
                 - hotelName, address, bookingReference
@@ -97,7 +98,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             {
               "category": "Transport" | "Accommodation" | "Activity" | "Identity" | "Note" | "Finance" | "Other",
               "title": "Concise File Name",
-              "flightDetails": { ... } | null,
+              "flightDetails": { 
+                "bookingCode": "...", 
+                "passengers": ["..."], 
+                "flights": [{ 
+                    "originCode": "...", "originCity": "...", 
+                    "destinationCode": "...", "destinationCity": "...", 
+                    "date": "YYYY-MM-DD", 
+                    "departureTime": "HH:MM", "departureTimeZone": "...", 
+                    "arrivalTime": "HH:MM", "arrivalTimeTimeZone": "...", 
+                    "flightNumber": "...", "duration": "..." 
+                }] 
+              } | null,
               "accommodationDetails": {
                 "hotelName": "...", "address": "...", "bookingReference": "...",
                 "checkInDate": "...", "checkInTime": "...", "checkOutDate": "...", "checkOutTime": "...",
@@ -176,6 +188,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     .move(urlPath, newFileName);
 
                 if (!moveError) {
+                    // Small delay to prevent race conditions in dev environment
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
                     const { data: { publicUrl } } = supabase.storage
                         .from('trip_docs')
                         .getPublicUrl(newFileName);
