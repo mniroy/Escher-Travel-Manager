@@ -65,40 +65,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
             const prompt = `Analyze this travel document. 
-            - Categorize it as one of: 'Transport', 'Accommodation', 'Identity', 'Finance', 'Other'.
+            - Categorize it as one of: 'Transport', 'Accommodation', 'Activity', 'Identity', 'Note', 'Finance', 'Other'.
             - Provide a concise, highly readable, and professional title.
-            - If it is a flight document (boarding pass or booking), extract the following specific details:
-                - originCode (e.g. CGK), originCity, destinationCode (e.g. ZRH), destinationCity
-                - departureTime, arrivalTime, duration (e.g. 16h 15m)
-                - departureTimeZone (e.g. GMT+7 or WIB), arrivalTimeZone (e.g. GMT+1 or CET)
-                - flightNumber, gate, seat
             
-            Return ONLY a valid JSON object with the following keys:
+            Determine the type and extract specific details:
+
+            1. **Flight** (Boarding Pass/Booking):
+                - bookingCode, passengers, flights array (origin, destination, date, time, flightNumber, etc.) as defined before.
+
+            2. **Accommodation** (Hotel/Airbnb):
+                - hotelName, address, bookingReference
+                - checkInDate, checkInTime, checkOutDate, checkOutTime
+                - roomType, guestName
+
+            3. **Ground Transport** (Train, Bus, Ferry - NOT Flight):
+                - type (Train, Bus, Ferry), provider (e.g. Eurostar, JR)
+                - origin, destination, date
+                - departureTime, arrivalTime, duration
+                - bookingReference, seat, carNumber, class (e.g. First, Economy)
+
+            4. **Activity** (Museum, Park, Concert, Tour):
+                - eventName, venue, date, time
+                - ticketCount, ticketType (e.g. Adult, VIP)
+                - seat (if applicable)
+
+            5. **Note/Guide/Info**:
+                - summary (brief overview)
+                - keyPoints (array of strings for specific rules, gate info, or directions)
+
+            Return ONLY a valid JSON object with these keys (fill only the relevant details object, null others):
             {
-              "category": "Transport" | "Accommodation" | "Identity" | "Finance" | "Other",
+              "category": "Transport" | "Accommodation" | "Activity" | "Identity" | "Note" | "Finance" | "Other",
               "title": "Concise File Name",
-              "flightDetails": {
-                "originCode": "...",
-                "originCity": "...",
-                "destinationCode": "...",
-                "destinationCity": "...",
-                "departureTime": "...",
-                "departureTimeZone": "...",
-                "arrivalTime": "...",
-                "arrivalTimeTimeZone": "...",
-                "duration": "...",
-                "flightNumber": "...",
-                "gate": "...",
-                "seat": "..."
+              "flightDetails": { ... } | null,
+              "accommodationDetails": {
+                "hotelName": "...", "address": "...", "bookingReference": "...",
+                "checkInDate": "...", "checkInTime": "...", "checkOutDate": "...", "checkOutTime": "...",
+                "roomType": "...", "guestName": "..."
+              } | null,
+              "transportDetails": {
+                "type": "Train" | "Bus", "provider": "...", "origin": "...", "destination": "...",
+                "date": "...", "departureTime": "...", "arrivalTime": "...", "duration": "...",
+                "bookingReference": "...", "seat": "...", "carNumber": "...", "class": "..."
+              } | null,
+              "activityDetails": {
+                "eventName": "...", "venue": "...", "date": "...", "time": "...",
+                "ticketCount": "...", "ticketType": "...", "seat": "..."
+              } | null,
+              "noteDetails": {
+                "summary": "...", "keyPoints": ["...", "..."]
               } | null,
               "extractedEvent": {
-                "title": "Title for Itinerary Card",
-                "type": "Transport" | "Stay" | "Eat" | "Play",
-                "time": "HH:MM AM/PM",
-                "duration": "e.g. 2h 30m",
-                "description": "Short summary",
-                "address": "Address",
-                "day_offset": 0
+                "title": "Title", "type": "Transport"| "Stay"| "Eat"| "Play", "time": "...", 
+                "duration": "...", "description": "...", "address": "...", "day_offset": 0
               } | null
             }`;
 
@@ -126,7 +145,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Store everything in metadata
                 metadata = {
                     ...aiData.extractedEvent,
-                    flightDetails: aiData.flightDetails
+                    flightDetails: aiData.flightDetails,
+                    accommodationDetails: aiData.accommodationDetails,
+                    transportDetails: aiData.transportDetails,
+                    activityDetails: aiData.activityDetails,
+                    noteDetails: aiData.noteDetails
                 };
             }
 
@@ -136,6 +159,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('Gemini Analysis failed, falling back to defaults:', aiError);
         }
 
+        // --- NEW: Rename the file in storage for human readability ---
+        let currentFileUrl = fileUrl;
+        try {
+            const ext = fileName.split('.').pop();
+            const sanitizedTitle = finalTitle.replace(/[^a-zA-Z0-9]/g, '_');
+            const newFileName = `${tripId}/${Date.now()}_${sanitizedTitle}.${ext}`;
+
+            // Get original path from URL
+            const urlPath = fileUrl.split('/storage/v1/object/public/trip_docs/')[1];
+
+            if (urlPath) {
+                console.log('Renaming file in storage from:', urlPath, 'to:', newFileName);
+                const { error: moveError } = await supabase.storage
+                    .from('trip_docs')
+                    .move(urlPath, newFileName);
+
+                if (!moveError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('trip_docs')
+                        .getPublicUrl(newFileName);
+                    currentFileUrl = publicUrl;
+                } else {
+                    console.error('Failed to rename file:', moveError);
+                }
+            }
+        } catch (renameError) {
+            console.error('File renaming failed:', renameError);
+        }
+
         // 3. Save Document to Supabase DB
         const { data: docData, error: docError } = await supabase
             .from('documents')
@@ -143,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 trip_id: tripId,
                 title: finalTitle,
                 category: finalCategory,
-                file_url: fileUrl,
+                file_url: currentFileUrl,
                 size: 'Unknown',
                 mime_type: fileType,
                 metadata: metadata
