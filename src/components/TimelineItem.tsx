@@ -214,7 +214,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
 
     // Calculate End Time for display
     let timeDisplay = event.time;
-    if (event.duration && event.time && !isCompact && !isSkipped) {
+    if (event.duration && event.time && !isCompact && !isSkipped && !isFirst && !event.isEnd) {
         const startMins = parseTime(event.time);
         const durationMins = parseDuration(event.duration);
         const endMins = startMins + durationMins;
@@ -464,7 +464,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 </div>
                                 <div className="flex-grow min-w-0">
                                     <h3 className="text-sm font-bold text-zinc-900 truncate">{event.title}</h3>
-                                    {event.duration && <p className="text-[10px] text-zinc-400 font-medium flex items-center gap-1"><Clock size={10} /> {event.duration}</p>}
+                                    {event.duration && !isFirst && !event.isEnd && <p className="text-[10px] text-zinc-400 font-medium flex items-center gap-1"><Clock size={10} /> {event.duration}</p>}
                                 </div>
                                 <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400">
                                     <div className="scale-75">{icon}</div>
@@ -541,7 +541,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                             <span className="text-slate-400 font-medium">({event.reviews?.toLocaleString()})</span>
                                                         </div>
                                                     )}
-                                                    {event.duration && (
+                                                    {event.duration && !isFirst && !event.isEnd && (
                                                         <div className="relative group/duration z-50">
                                                             <div
                                                                 onClick={(e) => { e.stopPropagation(); setShowDurationPicker(true); }}

@@ -19,23 +19,29 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const calculateScheduleForList = (sourceEvents: TimelineEvent[], selectedOffsets: number[]) => {
     const currentOffsets = new Set(selectedOffsets);
-    const currentDayEvents = sourceEvents.filter(e => currentOffsets.has(e.dayOffset || 0));
+    const dayEvents = sourceEvents.filter(e => currentOffsets.has(e.dayOffset || 0));
     const otherEvents = sourceEvents.filter(e => !currentOffsets.has(e.dayOffset || 0));
 
-    if (currentDayEvents.length === 0) return sourceEvents;
+    if (dayEvents.length === 0) return sourceEvents;
 
-    let currentTime = parseTime(currentDayEvents[0].time);
+    // Use the first event's time as the anchor for the whole day
+    let currentTime = parseTime(dayEvents[0].time);
 
-    const updatedDayEvents = currentDayEvents.map((event, index) => {
+    const updatedDayEvents = dayEvents.map((event, index) => {
         const parkingBuffer = event.parkingBuffer ?? 10;
 
         if (index > 0 && event.travelTime) {
             const travelMins = parseDuration(event.travelTime);
+            // Add travel time + parking buffer to get to the location
             currentTime += (travelMins + parkingBuffer);
         }
 
         const newTimeStr = formatTime(currentTime);
-        const duration = parseDuration(event.duration);
+
+        // Start items and End items have no "stay" duration in the timeline logic
+        const isAnchor = index === 0 || index === dayEvents.length - 1 || event.isStart || event.isEnd;
+        const duration = isAnchor ? 0 : parseDuration(event.duration);
+
         currentTime += duration;
 
         return { ...event, time: newTimeStr };
@@ -46,15 +52,19 @@ const calculateScheduleForList = (sourceEvents: TimelineEvent[], selectedOffsets
 
 const parseTime = (str: string) => {
     try {
-        if (!str || str.startsWith('NaN')) return 9 * 60; // Heal bad data
+        if (!str || typeof str !== 'string' || str.startsWith('NaN')) return 9 * 60;
 
-        const [time, period] = str.split(' ');
-        let [h, m] = time.split(':').map(Number);
+        // More robust parsing: handle "11:40 AM" or "11:40AM" or "11:40"
+        const timeMatch = str.match(/(\d{1,2}):(\d{2})\s*([ap]m)?/i);
+        if (!timeMatch) return 9 * 60;
 
-        if (isNaN(h) || isNaN(m)) return 9 * 60; // Fallback
+        let h = parseInt(timeMatch[1]);
+        const m = parseInt(timeMatch[2]);
+        const period = timeMatch[3]?.toUpperCase();
 
         if (period === 'PM' && h !== 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
+
         return h * 60 + m;
     } catch (e) {
         return 9 * 60; // Default 9 AM
@@ -62,16 +72,16 @@ const parseTime = (str: string) => {
 };
 
 const parseDuration = (str?: string) => {
-    if (!str) return 60; // Default 1h
+    if (!str || typeof str !== 'string') return 0; // Default 0 for undefined/null
     try {
-        const hMatch = str.match(/(\d+)h/);
-        const mMatch = str.match(/(\d+)m/);
+        const hMatch = str.match(/(\d+)\s*h/i);
+        const mMatch = str.match(/(\d+)\s*m/i);
         let m = 0;
         if (hMatch) m += parseInt(hMatch[1]) * 60;
         if (mMatch) m += parseInt(mMatch[1]);
-        return m || 60;
+        return m;
     } catch (e) {
-        return 60;
+        return 0;
     }
 };
 
@@ -105,34 +115,8 @@ export default function ItineraryPage() {
 
     const recalculateSchedule = (baseEvents?: TimelineEvent[]) => {
         const sourceEvents = baseEvents || events;
-        const currentOffsets = new Set(selectedDayOffsets);
-
-        const currentDayEvents = sourceEvents.filter(e => currentOffsets.has(e.dayOffset || 0));
-        const otherEvents = sourceEvents.filter(e => !currentOffsets.has(e.dayOffset || 0));
-
-        if (currentDayEvents.length === 0) return;
-
-        let currentTime = parseTime(currentDayEvents[0].time);
-
-        const updatedDayEvents = currentDayEvents.map((event, index) => {
-            const parkingBuffer = event.parkingBuffer ?? 10;
-
-            if (index > 0 && event.travelTime) {
-                const travelMins = parseDuration(event.travelTime);
-                // Add travel time + parking buffer to get to the location
-                currentTime += (travelMins + parkingBuffer);
-            }
-
-            const newTimeStr = formatTime(currentTime);
-            const duration = parseDuration(event.duration);
-
-            // Note: currentTime tracks the 'end' of the activity (departure)
-            currentTime += duration;
-
-            return { ...event, time: newTimeStr };
-        });
-
-        setEvents([...otherEvents, ...updatedDayEvents]);
+        const nextEvents = calculateScheduleForList(sourceEvents, selectedDayOffsets);
+        setEvents(nextEvents);
     };
 
     const handleTimeChange = (id: string, newHHMM: string) => {
@@ -493,11 +477,21 @@ export default function ItineraryPage() {
             // To do this correctly with hooks + side-effect (recalc):
 
             setEvents(prev => {
-                const updated = prev.map(e =>
-                    e.id === activityData.id
+                const updated = prev.map(e => {
+                    // Match by Day Offset
+                    const isSameDay = (e.dayOffset ?? 0) === (targetOffset ?? 0);
+
+                    if (isSameDay && e.id !== activityData.id) {
+                        // Clear existing Start if new one is being set
+                        if (activityData.isStart && e.isStart) return { ...e, isStart: false };
+                        // Clear existing End if new one is being set
+                        if (activityData.isEnd && e.isEnd) return { ...e, isEnd: false };
+                    }
+
+                    return e.id === activityData.id
                         ? { ...e, ...activityData, dayOffset: e.dayOffset }
-                        : e
-                );
+                        : e;
+                });
                 // Trigger recalc on this new list
                 // We MUST defer this to avoid "cannot update during render" if recalc triggers another setEvents
                 // But recalculateSchedule calls setEvents internally!
@@ -523,6 +517,7 @@ export default function ItineraryPage() {
             const newEvent: TimelineEvent = {
                 id: uuidv4(),
                 ...activityData,
+                description: '', // Default note input to empty so placeholder shows "Add note.."
                 openingHours: activityData.openingHours,
                 dayOffset: targetOffset
             };
@@ -559,6 +554,7 @@ export default function ItineraryPage() {
             ...place,
             id: uuidv4(), // New ID for the instance
             status: 'Scheduled',
+            description: '', // Default note input to empty so placeholder shows "Add note.."
             dayOffset: targetDay,
             duration: durationMins < 60 ? `${durationMins}m` : `${Math.floor(durationMins / 60)}h${durationMins % 60 ? ` ${durationMins % 60}m` : ''}`,
             time: isStartFlag ? '08:00 AM' : '09:00 AM', // Start items start earlier
@@ -569,21 +565,24 @@ export default function ItineraryPage() {
         setEvents(prev => {
             const currentDayEvents = prev.filter(e => (e.dayOffset ?? 0) === targetDay);
             const otherEvents = prev.filter(e => (e.dayOffset ?? 0) !== targetDay);
-            let newDayList = [...currentDayEvents];
+
+            // Replaces the current start or end card's anchor status
+            let newDayList: TimelineEvent[] = currentDayEvents.map(e => ({
+                ...e,
+                isStart: isStart ? false : e.isStart,
+                isEnd: isEnd ? false : e.isEnd
+            }));
 
             const addEventNormal = (evt: TimelineEvent) => {
                 // If the LAST item is an END item, insert before it
                 const lastItem = newDayList[newDayList.length - 1];
                 if (lastItem && lastItem.isEnd) {
-                    // Check if we have an insertIndex valid within the list
                     if (insertIndex !== null && insertIndex < newDayList.length) {
                         newDayList.splice(insertIndex, 0, evt);
                     } else {
-                        // Insert before the last item (the End item)
                         newDayList.splice(newDayList.length - 1, 0, evt);
                     }
                 } else {
-                    // Normal behavior
                     if (insertIndex !== null && insertIndex <= newDayList.length) {
                         newDayList.splice(insertIndex, 0, evt);
                     } else {
@@ -595,9 +594,7 @@ export default function ItineraryPage() {
             // 1. Handle START Insertion
             if (isStart) {
                 const startEvent = createEvent(true, false);
-                // Always unshift to top
                 newDayList.unshift(startEvent);
-                // Optional: Ensure only 1 start? For now, just unshift.
             }
 
             // 2. Handle END Insertion
@@ -613,7 +610,7 @@ export default function ItineraryPage() {
                 addEventNormal(normalEvent);
             }
 
-            return [...otherEvents, ...newDayList];
+            return calculateScheduleForList([...otherEvents, ...newDayList], selectedDayOffsets);
         });
 
         // DO NOT CLOSE SELECTOR
@@ -651,32 +648,18 @@ export default function ItineraryPage() {
     // Filter "Saved" places AND all unique history for the selector library
     // EXCLUDING places that are already added to the currently selected day
     const savedPlaces = useMemo(() => {
-        const currentDay = selectedDayOffsets[0] || 0;
-
-        // 1. Identify what is ON the current day (to exclude)
-        const keysOnCurrentDay = new Set<string>();
-        events.forEach(e => {
-            if ((e.dayOffset ?? 0) === currentDay) {
-                const key = e.placeId || e.googleMapsLink || e.title;
-                if (key) keysOnCurrentDay.add(key);
-            }
-        });
-
-        // 2. Build the unique library
+        // Build the unique library from all historical events
         const unique = new Map();
         events.forEach(e => {
             // Deduplicate by placeId (strongest) or title/link
             const key = e.placeId || e.googleMapsLink || e.title;
-
-            // Skip if it's already on the current day
-            if (key && keysOnCurrentDay.has(key)) return;
 
             if (key && !unique.has(key)) {
                 unique.set(key, e);
             }
         });
         return Array.from(unique.values());
-    }, [events, selectedDayOffsets]);
+    }, [events]);
 
     const getFormattedDateRange = () => {
         if (tripDates.length === 0) return '';
@@ -1116,17 +1099,26 @@ function DraggableTimelineItem({
             exit={{ opacity: 0, scale: 0.95 }}
             className="relative"
         >
-            {/* Insert Zone BEFORE item */}
-            {isEditing && (
+            {/* Insert Zone BEFORE item (Only if not first item, or if in editing mode) */}
+            {(isEditing || index > 0) && (
                 <div
                     onClick={() => openSelectorAt(index)}
-                    className="h-10 my-2 flex items-center justify-center group cursor-pointer transition-all"
+                    className={`
+                        flex items-center justify-center group/insert cursor-pointer transition-all
+                        ${isEditing ? 'h-10 my-2' : 'h-8 -my-4 relative z-20'}
+                    `}
                 >
-                    <div className="h-[2px] w-full bg-zinc-200 group-hover:bg-zinc-300 rounded-full relative transition-all">
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
-                            <Plus size={10} strokeWidth={3} /> INSERT HERE
+                    {isEditing ? (
+                        <div className="h-[2px] w-full bg-zinc-200 group-hover/insert:bg-zinc-300 rounded-full relative transition-all">
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-900 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg scale-100 transition-transform flex items-center gap-1">
+                                <Plus size={10} strokeWidth={3} /> INSERT HERE
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="w-6 h-6 bg-white border-2 border-zinc-100 text-[#007AFF] rounded-full flex items-center justify-center shadow-md hover:bg-[#007AFF] hover:text-white hover:border-[#007AFF] hover:scale-110 transition-all">
+                            <Plus size={14} strokeWidth={3} />
+                        </div>
+                    )}
                 </div>
             )}
 

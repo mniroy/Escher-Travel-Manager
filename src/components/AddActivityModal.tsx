@@ -31,6 +31,8 @@ export interface NewActivity {
     lng?: number;
     address?: string;
     openingHours?: string[];
+    isStart?: boolean;
+    isEnd?: boolean;
 }
 
 export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDuration = false }: AddActivityModalProps) {
@@ -64,7 +66,9 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
         type: 'Play',
         time: 'TBD',
         description: '',
-        placeId: ''
+        placeId: '',
+        isStart: false,
+        isEnd: false
     });
 
     useEffect(() => {
@@ -82,7 +86,9 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                     rating: initialData.rating,
                     duration: initialData.duration,
                     placeId: initialData.placeId,
-                    openingHours: initialData.openingHours
+                    openingHours: initialData.openingHours,
+                    isStart: initialData.isStart,
+                    isEnd: initialData.isEnd
                 });
                 setLink(initialData.googleMapsLink || '');
                 setDurationMinutes(parseDurationToMinutes(initialData.duration));
@@ -92,7 +98,7 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                 setStep('INPUT');
                 setLink('');
                 setDurationMinutes(60); // Default 1h
-                setFormData({ title: '', type: 'Play', time: 'TBD', description: '', placeId: '' });
+                setFormData({ title: '', type: 'Play', time: 'TBD', description: '', placeId: '', isStart: false, isEnd: false });
             }
         }
     }, [isOpen, initialData]);
@@ -304,6 +310,24 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                                                 className="bg-transparent border-none text-sm text-zinc-900 focus:outline-none w-full placeholder:text-zinc-400 font-medium truncate"
                                             />
                                         </div>
+                                    </div>
+
+                                    {/* Anchor Status Toggles */}
+                                    <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-zinc-100">
+                                        <button
+                                            onClick={() => setFormData(prev => ({ ...prev, isStart: !prev.isStart, isEnd: !prev.isStart ? false : prev.isEnd }))}
+                                            className={`flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-bold border-2 transition-all ${formData.isStart ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-zinc-100 text-zinc-400 hover:border-zinc-200'}`}
+                                        >
+                                            <MapPin size={14} className={formData.isStart ? 'text-blue-500' : 'text-zinc-300'} />
+                                            Set as Start
+                                        </button>
+                                        <button
+                                            onClick={() => setFormData(prev => ({ ...prev, isEnd: !prev.isEnd, isStart: !prev.isEnd ? false : prev.isStart }))}
+                                            className={`flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-bold border-2 transition-all ${formData.isEnd ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-zinc-100 text-zinc-400 hover:border-zinc-200'}`}
+                                        >
+                                            <ArrowRight size={14} className={formData.isEnd ? 'text-blue-500' : 'text-zinc-300'} />
+                                            Set as End
+                                        </button>
                                     </div>
                                 </div>
                             </div>
