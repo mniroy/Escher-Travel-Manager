@@ -73,6 +73,7 @@ function dbEventToTimelineEvent(e: DbEvent): TimelineEvent {
         lat: e.lat || undefined,
         lng: e.lng || undefined,
         address: e.address || undefined,
+        parkingBuffer: e.parking_buffer ?? undefined,
         isStart: e.is_start || false,
         isEnd: e.is_end || false,
     };
@@ -80,7 +81,7 @@ function dbEventToTimelineEvent(e: DbEvent): TimelineEvent {
 
 // Convert Timeline event to DB event format
 function timelineEventToDbEvent(e: TimelineEvent, tripId: string, sortOrder: number): Omit<DbEvent, 'created_at' | 'updated_at'> {
-    return {
+    const dbEvent = {
         id: e.id,
         trip_id: tripId,
         type: e.type,
@@ -105,10 +106,13 @@ function timelineEventToDbEvent(e: TimelineEvent, tripId: string, sortOrder: num
         lat: e.lat || null,
         lng: e.lng || null,
         address: e.address || null,
+        parking_buffer: e.parkingBuffer ?? null,
         opening_hours: e.openingHours || null,
         is_start: e.isStart || null,
         is_end: e.isEnd || null,
     };
+    // console.log(`[TripContext] Converting to DB: ${e.title}, Parking: ${e.parkingBuffer} -> ${dbEvent.parking_buffer}`);
+    return dbEvent;
 }
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
@@ -124,6 +128,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const [events, setEventsState] = useState<TimelineEvent[]>([]);
     // Ref to hold the authoritative latest state for rapid updates
     const eventsRef = React.useRef<TimelineEvent[]>([]);
+    // Ref to ignore realtime updates for a bit after we push changes
+    const lastLocalUpdateRef = React.useRef<number>(0);
 
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -321,6 +327,14 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         let eventChannel: any;
         if (currentTripId) {
             eventChannel = subscribeToEvents(currentTripId, (payload) => {
+                // If we recently pushed a local update, ignore the incoming stream for a second
+                // to avoid the "revert" flicker caused by re-fetching while the DB is still processing.
+                const timeSinceLastLocalUpdate = Date.now() - lastLocalUpdateRef.current;
+                if (timeSinceLastLocalUpdate < 2000) {
+                    console.log('[TripContext] Ignoring real-time update (too soon after local change)');
+                    return;
+                }
+
                 console.log('[TripContext] Real-time event update:', payload.eventType);
                 db.getEvents(currentTripId).then(dbEvents => {
                     setEventsState(dbEvents.map(dbEventToTimelineEvent));
@@ -449,6 +463,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
         if (currentTripId) {
             try {
+                // Mark time of local update to ignore incoming echo
+                lastLocalUpdateRef.current = Date.now();
+
                 if (isOnline) {
                     // Convert to DB format and upsert
                     const dbEvents = newEvents.map((e, i) =>

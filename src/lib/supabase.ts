@@ -61,6 +61,7 @@ export interface DbEvent {
     lat: number | null;
     lng: number | null;
     address: string | null;
+    parking_buffer: number | null;
     opening_hours: string[] | null;
     is_start?: boolean | null;
     is_end?: boolean | null;

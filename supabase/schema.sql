@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS events (
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
     address TEXT,
+    parking_buffer INTEGER DEFAULT 10,
     opening_hours TEXT[],
     is_start BOOLEAN DEFAULT FALSE,
     is_end BOOLEAN DEFAULT FALSE,
