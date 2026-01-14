@@ -339,25 +339,25 @@ export default function DocumentsPage() {
                                                         {(doc.metadata.flightDetails.flights || [doc.metadata.flightDetails]).map((flight: any, idx: number) => (
                                                             <div key={idx} className={`${idx > 0 ? 'border-t border-dashed border-white/10' : ''}`}>
                                                                 {/* Top Section (Dark/Navy) */}
-                                                                <div className="bg-[#0A1633] p-6 text-white relative">
-                                                                    <div className="flex justify-between items-start mb-6">
+                                                                {/* Top Section (Dark/Navy) */}
+                                                                <div className="bg-[#0A1633] p-3 sm:p-6 text-white relative">
+                                                                    <div className="flex flex-row justify-between items-start mb-4 sm:mb-6">
                                                                         <div className="flex flex-col">
                                                                             <div className="flex items-center gap-2 opacity-80 mb-2">
                                                                                 <Plane size={12} className="rotate-90 text-blue-400" />
-                                                                                <span className="text-sm font-black uppercase tracking-wider">
+                                                                                <span className="text-xs sm:text-sm font-black uppercase tracking-wider">
                                                                                     {flight.departureTime}
-                                                                                    {flight.departureTimeZone && <span className="ml-1 text-blue-200 text-[10px] font-bold">{flight.departureTimeZone}</span>}
+                                                                                    {flight.departureTimeZone && <span className="ml-1 text-blue-200 text-[9px] sm:text-[10px] font-bold">{flight.departureTimeZone}</span>}
                                                                                 </span>
                                                                             </div>
-                                                                            <h2 className="text-4xl font-black tracking-tighter leading-none">{flight.originCode}</h2>
-                                                                            <p className="text-[11px] font-medium opacity-50 mt-1">{flight.originCity}</p>
+                                                                            <h2 className="text-2xl sm:text-4xl font-black tracking-tighter leading-none">{flight.originCode}</h2>
+                                                                            <p className="text-[10px] sm:text-[11px] font-medium opacity-50 mt-1">{flight.originCity}</p>
                                                                         </div>
 
                                                                         {/* Duration Centerpiece */}
-                                                                        {/* Duration Centerpiece */}
-                                                                        <div className="flex-1 flex flex-col items-center justify-center px-4 relative mt-4">
-                                                                            <div className="bg-[#0A1633] px-3 z-10 mb-1">
-                                                                                <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">
+                                                                        <div className="flex-1 flex flex-col items-center justify-center px-1 sm:px-4 relative mt-2 sm:mt-4">
+                                                                            <div className="bg-[#0A1633] px-2 sm:px-3 z-10 mb-1">
+                                                                                <span className="text-[9px] sm:text-[11px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
                                                                                     {(() => {
                                                                                         const d = typeof flight.date === 'string' ? flight.date : '';
                                                                                         if (!d) return '';
@@ -367,9 +367,9 @@ export default function DocumentsPage() {
                                                                                                 const [y, m, day] = d.split('-').map(Number);
                                                                                                 // Create local date to avoid timezone shifts
                                                                                                 const date = new Date(y, m - 1, day);
-                                                                                                return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                                                                                                return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                                                                                             }
-                                                                                            return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                                                                                            return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                                                                                         } catch (e) { return d; }
                                                                                     })()}
                                                                                 </span>
@@ -377,8 +377,8 @@ export default function DocumentsPage() {
                                                                             <div className="w-full h-[1px] bg-white/10 absolute top-1/2 left-0" />
 
                                                                             {/* Duration Badge */}
-                                                                            <div className="bg-[#0A1633] px-3 z-10 mt-1">
-                                                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
+                                                                            <div className="bg-[#0A1633] px-2 sm:px-3 z-10 mt-1">
+                                                                                <span className="text-[9px] sm:text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
                                                                                     {(() => {
                                                                                         if (typeof flight.duration === 'string' && flight.duration) return flight.duration;
                                                                                         if (flight.departureTime && flight.arrivalTime) {
@@ -405,29 +405,29 @@ export default function DocumentsPage() {
 
                                                                         <div className="flex flex-col items-end">
                                                                             <div className="flex items-center gap-2 opacity-80 mb-2">
-                                                                                <span className="text-sm font-black uppercase tracking-wider">
+                                                                                <span className="text-xs sm:text-sm font-black uppercase tracking-wider">
                                                                                     {flight.arrivalTime}
-                                                                                    {flight.arrivalTimeTimeZone && <span className="ml-1 opacity-50 text-[10px]">{flight.arrivalTimeTimeZone}</span>}
+                                                                                    {flight.arrivalTimeTimeZone && <span className="ml-1 opacity-50 text-[9px] sm:text-[10px]">{flight.arrivalTimeTimeZone}</span>}
                                                                                 </span>
                                                                                 <Plane size={12} className="rotate-180 text-blue-400" />
                                                                             </div>
-                                                                            <h2 className="text-4xl font-black tracking-tighter leading-none text-right">{flight.destinationCode}</h2>
-                                                                            <p className="text-[11px] font-medium opacity-50 mt-1 text-right">{flight.destinationCity}</p>
+                                                                            <h2 className="text-2xl sm:text-4xl font-black tracking-tighter leading-none text-right">{flight.destinationCode}</h2>
+                                                                            <p className="text-[10px] sm:text-[11px] font-medium opacity-50 mt-1 text-right">{flight.destinationCity}</p>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Bottom Section (Premium Blue) */}
                                                                 <div className="bg-[#007AFF] px-6 py-5 text-white grid grid-cols-3 gap-4 border-t border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                                                                    <div className="flex flex-col">
+                                                                    <div className="flex flex-col items-center">
                                                                         <h3 className="text-lg font-black leading-none mb-1">{flight.flightNumber}</h3>
                                                                         <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Flight number</p>
                                                                     </div>
-                                                                    <div className="flex flex-col">
+                                                                    <div className="flex flex-col items-center">
                                                                         <h3 className="text-lg font-black leading-none mb-1">{flight.gate || 'TBD'}</h3>
                                                                         <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Gate no.</p>
                                                                     </div>
-                                                                    <div className="flex flex-col">
+                                                                    <div className="flex flex-col items-center">
                                                                         <h3 className="text-lg font-black leading-none mb-1">{flight.seat || 'TBD'}</h3>
                                                                         <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Seat no.</p>
                                                                     </div>
@@ -437,16 +437,16 @@ export default function DocumentsPage() {
                                                     </div>
                                                 ) : doc.metadata?.accommodationDetails ? (
                                                     /* New Premium Accommodation Card (Hotel Key Card Style) */
-                                                    <div className="flex flex-col rounded-[24px] overflow-hidden shadow-2xl shadow-emerald-900/20 border border-white/10 group-hover:scale-[1.01] transition-all duration-500 bg-[#064E3B] text-white h-auto min-h-[220px] relative">
+                                                    <div className="flex flex-col rounded-[24px] overflow-hidden shadow-2xl shadow-emerald-900/20 border border-white/10 group-hover:scale-[1.01] transition-all duration-500 bg-[#064E3B] text-white h-auto relative">
                                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
                                                         {/* Hotel Header */}
                                                         <div className="p-6 relative z-10 flex-grow">
-                                                            <div className="flex justify-between items-start mb-8">
+                                                            <div className="flex flex-wrap justify-between items-start mb-8 gap-2">
                                                                 <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl">
                                                                     <MapPin className="text-emerald-300" size={20} />
                                                                 </div>
-                                                                <span className="px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
+                                                                <span className="px-3 py-1 rounded-full bg-emerald-900/50 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-widest text-emerald-100 backdrop-blur-sm whitespace-normal text-right">
                                                                     Booking Ref: {doc.metadata.accommodationDetails.bookingReference || 'N/A'}
                                                                 </span>
                                                             </div>
@@ -454,7 +454,7 @@ export default function DocumentsPage() {
                                                             <h2 className="text-3xl font-['Playfair_Display'] font-black leading-tight mb-2 tracking-tight">
                                                                 {doc.metadata.accommodationDetails.hotelName}
                                                             </h2>
-                                                            <p className="text-sm font-medium text-emerald-200/80 line-clamp-2 mb-6">
+                                                            <p className="text-sm font-medium text-emerald-200/80 mb-6 break-words">
                                                                 {doc.metadata.accommodationDetails.address}
                                                             </p>
 
@@ -462,26 +462,52 @@ export default function DocumentsPage() {
                                                             <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
                                                                 <div>
                                                                     <p className="text-[10px] uppercase tracking-widest text-emerald-300/60 font-bold mb-1">Check-In</p>
-                                                                    <h3 className="text-lg font-black">{doc.metadata.accommodationDetails.checkInDate}</h3>
+                                                                    <h3 className="text-lg font-black">
+                                                                        {(() => {
+                                                                            const d = doc.metadata.accommodationDetails.checkInDate;
+                                                                            if (!d) return '';
+                                                                            try {
+                                                                                if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                                                    const [y, m, day] = d.split('-').map(Number);
+                                                                                    const date = new Date(y, m - 1, day);
+                                                                                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                                }
+                                                                                return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                            } catch (e) { return d; }
+                                                                        })()}
+                                                                    </h3>
                                                                     <p className="text-xs font-medium text-white/60">{doc.metadata.accommodationDetails.checkInTime}</p>
                                                                 </div>
                                                                 <div className="text-right">
                                                                     <p className="text-[10px] uppercase tracking-widest text-emerald-300/60 font-bold mb-1">Check-Out</p>
-                                                                    <h3 className="text-lg font-black">{doc.metadata.accommodationDetails.checkOutDate}</h3>
+                                                                    <h3 className="text-lg font-black">
+                                                                        {(() => {
+                                                                            const d = doc.metadata.accommodationDetails.checkOutDate;
+                                                                            if (!d) return '';
+                                                                            try {
+                                                                                if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                                                    const [y, m, day] = d.split('-').map(Number);
+                                                                                    const date = new Date(y, m - 1, day);
+                                                                                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                                }
+                                                                                return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                            } catch (e) { return d; }
+                                                                        })()}
+                                                                    </h3>
                                                                     <p className="text-xs font-medium text-white/60">{doc.metadata.accommodationDetails.checkOutTime}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
 
                                                         {/* Guest Strip */}
-                                                        <div className="bg-[#065F46] px-6 py-3 flex justify-between items-center text-xs font-medium text-emerald-100 border-t border-white/5">
+                                                        <div className="bg-[#065F46] px-6 py-3 flex flex-wrap justify-between items-center text-xs font-medium text-emerald-100 border-t border-white/5 gap-2">
                                                             <span>Guest: <span className="text-white font-bold">{doc.metadata.accommodationDetails.guestName || 'Guest'}</span></span>
                                                             <span>{doc.metadata.accommodationDetails.roomType}</span>
                                                         </div>
                                                     </div>
                                                 ) : doc.metadata?.activityDetails ? (
                                                     /* New Premium Activity Card (Event Ticket Style) */
-                                                    <div className="relative flex rounded-[24px] overflow-hidden shadow-2xl shadow-purple-900/20 group-hover:scale-[1.01] transition-all duration-500 bg-white">
+                                                    <div className="relative flex flex-col sm:flex-row rounded-[24px] overflow-hidden shadow-2xl shadow-purple-900/20 group-hover:scale-[1.01] transition-all duration-500 bg-white">
                                                         {/* Main Ticket Section */}
                                                         <div className="bg-[#1e1b4b] flex-grow p-6 text-white relative flex flex-col justify-between">
                                                             <div>
@@ -489,16 +515,29 @@ export default function DocumentsPage() {
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-purple-300 bg-purple-900/50 px-2 py-1 rounded-md">Event Ticket</span>
                                                                     <Download size={16} className="text-purple-300/50" />
                                                                 </div>
-                                                                <h2 className="text-2xl font-black leading-none mb-2 tracking-tight">{doc.metadata.activityDetails.eventName}</h2>
-                                                                <p className="text-sm text-purple-200/60 font-medium flex items-center gap-1.5">
-                                                                    <MapPin size={12} /> {doc.metadata.activityDetails.venue}
+                                                                <h2 className="text-2xl font-black leading-tight mb-2 tracking-tight break-words">{doc.metadata.activityDetails.eventName}</h2>
+                                                                <p className="text-sm text-purple-200/60 font-medium flex items-start gap-1.5 break-words">
+                                                                    <MapPin size={12} className="mt-0.5 shrink-0" /> {doc.metadata.activityDetails.venue}
                                                                 </p>
                                                             </div>
 
-                                                            <div className="mt-8 flex gap-8">
+                                                            <div className="mt-8 flex flex-wrap gap-x-8 gap-y-4">
                                                                 <div>
                                                                     <p className="text-[10px] uppercase tracking-widest text-purple-400 font-bold mb-0.5">Date</p>
-                                                                    <p className="text-lg font-black">{doc.metadata.activityDetails.date}</p>
+                                                                    <p className="text-lg font-black">
+                                                                        {(() => {
+                                                                            const d = doc.metadata.activityDetails.date;
+                                                                            if (!d) return '';
+                                                                            try {
+                                                                                if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                                                    const [y, m, day] = d.split('-').map(Number);
+                                                                                    const date = new Date(y, m - 1, day);
+                                                                                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                                }
+                                                                                return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                            } catch (e) { return d; }
+                                                                        })()}
+                                                                    </p>
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-[10px] uppercase tracking-widest text-purple-400 font-bold mb-0.5">Time</p>
@@ -514,11 +553,11 @@ export default function DocumentsPage() {
                                                         </div>
 
                                                         {/* Tear-off Stub Visual */}
-                                                        <div className="relative w-12 bg-[#312e81] border-l-2 border-dashed border-white/20 flex flex-col items-center justify-center">
-                                                            <div className="absolute -top-3 left-[-9px] w-5 h-5 rounded-full bg-zinc-50 z-10"></div>
-                                                            <div className="absolute -bottom-3 left-[-9px] w-5 h-5 rounded-full bg-zinc-50 z-10"></div>
+                                                        <div className="relative w-full sm:w-12 h-12 sm:h-auto bg-[#312e81] border-t-2 sm:border-t-0 sm:border-l-2 border-dashed border-white/20 flex flex-row sm:flex-col items-center justify-center shrink-0">
+                                                            <div className="absolute -left-3 sm:left-[-9px] top-1/2 sm:-top-3 w-5 h-5 rounded-full bg-zinc-50 z-10 transform -translate-y-1/2 sm:translate-y-0"></div>
+                                                            <div className="absolute -right-3 sm:left-[-9px] top-1/2 sm:-bottom-3 w-5 h-5 rounded-full bg-zinc-50 z-10 transform -translate-y-1/2 sm:translate-y-0"></div>
 
-                                                            <div className="rotate-90 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.2em] text-purple-300/50">
+                                                            <div className="sm:rotate-90 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.2em] text-purple-300/50">
                                                                 ADMIT ONE
                                                             </div>
                                                         </div>
@@ -529,8 +568,8 @@ export default function DocumentsPage() {
                                                         {/* Orange Stripe Top */}
                                                         <div className="h-2 w-full bg-[#EA580C]"></div>
 
-                                                        <div className="p-6">
-                                                            <div className="flex justify-between items-center mb-6">
+                                                        <div className="p-4 sm:p-6">
+                                                            <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
                                                                 <div className="flex items-center gap-2">
                                                                     <div className="bg-white/10 p-1.5 rounded-lg">
                                                                         {/* We can use a generalized 'Train' icon or similar */}
@@ -538,33 +577,46 @@ export default function DocumentsPage() {
                                                                     </div>
                                                                     <span className="text-sm font-bold text-white/50">{doc.metadata.transportDetails.provider}</span>
                                                                 </div>
-                                                                <span className="text-xs font-mono text-[#EA580C] bg-[#EA580C]/10 px-2 py-1 rounded font-bold">
+                                                                <span className="text-xs font-mono text-[#EA580C] bg-[#EA580C]/10 px-2 py-1 rounded font-bold break-all">
                                                                     ID: {doc.metadata.transportDetails.bookingReference || '---'}
                                                                 </span>
                                                             </div>
 
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <div>
-                                                                    <h3 className="text-2xl font-black text-white">{doc.metadata.transportDetails.origin}</h3>
+                                                            <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4 sm:gap-0">
+                                                                <div className="text-center sm:text-left w-full sm:w-auto">
+                                                                    <h3 className="text-xl sm:text-2xl font-black text-white break-words">{doc.metadata.transportDetails.origin}</h3>
                                                                     <p className="text-xs text-white/40 font-bold uppercase tracking-wider">{doc.metadata.transportDetails.departureTime}</p>
                                                                 </div>
 
-                                                                <div className="flex-1 px-4 flex flex-col items-center">
-                                                                    <div className="w-full h-0.5 bg-white/20 relative">
+                                                                <div className="flex-1 px-4 flex flex-col items-center w-full sm:w-auto">
+                                                                    <div className="w-full sm:w-32 h-0.5 bg-white/20 relative">
                                                                         <div className="absolute center-0 -top-1 w-2 h-2 rounded-full bg-white/20"></div>
                                                                         <div className="absolute right-0 -top-1 w-2 h-2 rounded-full bg-[#EA580C]"></div>
                                                                     </div>
                                                                     <span className="text-[9px] font-bold text-white/30 mt-1 uppercase tracking-wider">{doc.metadata.transportDetails.duration}</span>
                                                                 </div>
 
-                                                                <div className="text-right">
-                                                                    <h3 className="text-2xl font-black text-white">{doc.metadata.transportDetails.destination}</h3>
+                                                                <div className="text-center sm:text-right w-full sm:w-auto">
+                                                                    <h3 className="text-xl sm:text-2xl font-black text-white break-words">{doc.metadata.transportDetails.destination}</h3>
                                                                     <p className="text-xs text-white/40 font-bold uppercase tracking-wider">{doc.metadata.transportDetails.arrivalTime}</p>
                                                                 </div>
                                                             </div>
 
-                                                            <div className="mt-4 pt-4 border-t border-white/5 flex gap-4 text-xs font-medium text-white/60">
-                                                                <span>{doc.metadata.transportDetails.date}</span>
+                                                            <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-4 text-xs font-medium text-white/60">
+                                                                <span>
+                                                                    {(() => {
+                                                                        const d = doc.metadata.transportDetails.date;
+                                                                        if (!d) return '';
+                                                                        try {
+                                                                            if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                                                const [y, m, day] = d.split('-').map(Number);
+                                                                                const date = new Date(y, m - 1, day);
+                                                                                return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                            }
+                                                                            return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                                                        } catch (e) { return d; }
+                                                                    })()}
+                                                                </span>
                                                                 {doc.metadata.transportDetails.seat && (
                                                                     <span className="text-white">Seat: {doc.metadata.transportDetails.seat}</span>
                                                                 )}
@@ -576,13 +628,13 @@ export default function DocumentsPage() {
                                                     </div>
                                                 ) : doc.metadata?.noteDetails ? (
                                                     /* New Note Card (Sticky Note Style) */
-                                                    <div className="bg-[#FEF9C3] rounded-2xl p-6 shadow-lg shadow-yellow-500/10 rotate-1 group-hover:rotate-0 transition-transform duration-300 relative border border-yellow-200/50">
+                                                    <div className="bg-[#FEF9C3] rounded-2xl p-6 shadow-lg shadow-yellow-500/10 rotate-1 group-hover:rotate-0 transition-transform duration-300 relative border border-yellow-200/50 h-auto">
                                                         <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-black/5 to-transparent rounded-bl-xl"></div>
 
-                                                        <h3 className="text-lg font-['Playfair_Display'] font-black text-yellow-900 mb-2 leading-tight">
+                                                        <h3 className="text-lg font-['Playfair_Display'] font-black text-yellow-900 mb-2 leading-tight break-words">
                                                             {doc.title}
                                                         </h3>
-                                                        <p className="text-sm text-yellow-800/80 font-medium mb-4 leading-relaxed">
+                                                        <p className="text-sm text-yellow-800/80 font-medium mb-4 leading-relaxed whitespace-pre-wrap break-words">
                                                             {doc.metadata.noteDetails.summary}
                                                         </p>
 
@@ -591,7 +643,7 @@ export default function DocumentsPage() {
                                                                 {doc.metadata.noteDetails.keyPoints.map((point: string, i: number) => (
                                                                     <div key={i} className="flex items-start gap-2 text-xs text-yellow-900">
                                                                         <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0"></div>
-                                                                        <span>{point}</span>
+                                                                        <span className="break-words">{point}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>
