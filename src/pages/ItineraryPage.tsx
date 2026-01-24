@@ -5,7 +5,7 @@ import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
-import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical, Calendar, CalendarDays, ArrowRight } from 'lucide-react';
+import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical, Calendar, CalendarDays } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { motion, AnimatePresence, useScroll, useTransform, Reorder, useDragControls } from 'framer-motion';
 import { optimizeRoute } from '../lib/googleMaps';

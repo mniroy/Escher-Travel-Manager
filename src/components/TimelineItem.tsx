@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { TimePicker } from './TimePicker';
 import { DurationPicker } from './DurationPicker';
-import { parseTime, formatTime, parseDuration } from '../lib/utils';
+import { parseTime, formatTime } from '../lib/utils';
 
 // Helper: Parse hours from "9:00 AM – 5:00 PM" string - rename to avoid conflict if needed, 
 // but parseTime in utils is strictly for HH:MM AM/PM format.
