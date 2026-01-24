@@ -8,6 +8,7 @@ import ExplorePlacesPage from './pages/ExplorePlacesPage';
 import DocumentsPage from './pages/DocumentsPage';
 import { ScrollToTop } from './components/ScrollToTop';
 import TripSummaryPage from './pages/TripSummaryPage';
+import HistoryPage from './pages/HistoryPage';
 
 function AppContent() {
     const { isLoading } = useTrip();
@@ -33,6 +34,7 @@ function AppContent() {
                 <Route path="/places" element={<PlacesPage />} />
                 <Route path="/places/explore" element={<ExplorePlacesPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/history" element={<HistoryPage />} />
                 <Route path="*" element={<ItineraryPage />} />
             </Routes>
         </div>

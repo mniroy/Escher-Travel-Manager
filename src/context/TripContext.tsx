@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { TimelineEvent } from '../components/TimelineItem';
-import { db, DbTrip, DbEvent, subscribeToTrips, subscribeToEvents, checkSupabaseConnection } from '../lib/supabase';
+import { db, DbTrip, DbEvent, DbHistory, subscribeToTrips, subscribeToEvents, checkSupabaseConnection } from '../lib/supabase';
 import { storage, initializeDefaultData, TimelineEvent as StoredEvent } from '../lib/storage';
 import { uuidv4 } from '../lib/uuid';
 
@@ -42,6 +42,11 @@ interface TripContextType {
     // Current State
     selectedDayOffset: number;
     setSelectedDayOffset: (offset: number) => void;
+
+    // History
+    history: DbHistory[];
+    addHistoryRecord: (actionType: 'delete' | 'add' | 'update', event: TimelineEvent, comment?: string) => Promise<void>;
+    updateHistoryComment: (id: string, comment: string) => Promise<void>;
 
     // Refresh data
     refreshData: () => Promise<void>;
@@ -130,6 +135,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const [tripDuration, setTripDurationState] = useState(9);
     const [placesCoverImage, setPlacesCoverImageState] = useState('');
     const [events, setEventsState] = useState<TimelineEvent[]>([]);
+    const [history, setHistory] = useState<DbHistory[]>([]);
     // Ref to hold the authoritative latest state for rapid updates
     const eventsRef = React.useRef<TimelineEvent[]>([]);
     // Ref to ignore realtime updates for a bit after we push changes
@@ -181,6 +187,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 setEventsState(dbEvents.map(dbEventToTimelineEvent));
+
+                // Load history
+                if (isOnline) {
+                    const histData = await db.getHistory(tripId);
+                    setHistory(histData);
+                }
+
                 console.log(`[TripContext] Loaded trip: ${trip.name} (${trip.id})`);
             }
         } catch (e) {
@@ -515,6 +528,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
         if (currentTripId) {
             try {
+                // Record deletion in history BEFORE actual deletion if possible, 
+                // or just snapshot it now.
+                const eventToSnapshot = previousEvents.find(e => e.id === id);
+                if (eventToSnapshot) {
+                    await addHistoryRecord('delete', eventToSnapshot, 'Item deleted from itinerary');
+                }
+
                 if (isOnline) {
                     await db.deleteEvent(id);
                 } else {
@@ -525,6 +545,41 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 // Revert on error
                 eventsRef.current = previousEvents;
                 setEventsState(previousEvents);
+            }
+        }
+    };
+
+    const addHistoryRecord = async (actionType: 'delete' | 'add' | 'update', event: TimelineEvent, comment?: string) => {
+        if (!currentTripId) return;
+
+        const record: Omit<DbHistory, 'id' | 'created_at'> = {
+            trip_id: currentTripId,
+            action_type: actionType,
+            event_title: event.title,
+            event_data: event,
+            comment: comment || null
+        };
+
+        if (isOnline) {
+            try {
+                const newRecord = await db.createHistoryRecord(record);
+                setHistory(prev => [newRecord, ...prev]);
+            } catch (error) {
+                console.error('[TripContext] Failed to create history record:', error);
+            }
+        } else {
+            // Local fallback could be implemented if needed
+            console.warn('[TripContext] Offline history recording not implemented');
+        }
+    };
+
+    const updateHistoryComment = async (id: string, comment: string) => {
+        if (isOnline) {
+            try {
+                const updated = await db.updateHistoryComment(id, comment);
+                setHistory(prev => prev.map(h => h.id === id ? updated : h));
+            } catch (error) {
+                console.error('[TripContext] Failed to update history comment:', error);
             }
         }
     };
@@ -560,7 +615,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             refreshData: loadData,
             updateTripDetails, // New
             selectedDayOffset,
-            setSelectedDayOffset
+            setSelectedDayOffset,
+            history,
+            addHistoryRecord,
+            updateHistoryComment,
         }}>
             {children}
         </TripContext.Provider>

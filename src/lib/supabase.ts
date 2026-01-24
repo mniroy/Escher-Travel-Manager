@@ -82,6 +82,16 @@ export interface DbDocument {
     updated_at: string;
 }
 
+export interface DbHistory {
+    id: string;
+    trip_id: string;
+    action_type: 'add' | 'update' | 'delete' | 'move';
+    event_title: string;
+    event_data: any;
+    comment: string | null;
+    created_at: string;
+}
+
 // ==============================================
 // Database Operations
 // ==============================================
@@ -226,6 +236,41 @@ export const db = {
             .eq('id', id);
 
         if (error) throw error;
+    },
+
+    // ---- History ----
+    async getHistory(tripId: string): Promise<DbHistory[]> {
+        const { data, error } = await supabase
+            .from('trip_history')
+            .select('*')
+            .eq('trip_id', tripId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    },
+
+    async createHistoryRecord(record: Omit<DbHistory, 'id' | 'created_at'>): Promise<DbHistory> {
+        const { data, error } = await supabase
+            .from('trip_history')
+            .insert(record)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async updateHistoryComment(id: string, comment: string): Promise<DbHistory> {
+        const { data, error } = await supabase
+            .from('trip_history')
+            .update({ comment })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 };
 
