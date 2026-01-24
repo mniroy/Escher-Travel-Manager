@@ -23,6 +23,10 @@ interface TripContextType {
     setPlacesCoverImage: (url: string) => void;
     updateTripDetails: (updates: { name?: string; startDate?: Date; duration?: number; coverImage?: string }) => Promise<void>;
 
+    // Day Specific Settings
+    dayTransportModes: Record<number, 'DRIVE' | 'TWO_WHEELER' | 'WALK'>;
+    setDayTransportMode: (dayOffset: number, mode: 'DRIVE' | 'TWO_WHEELER' | 'WALK') => void;
+
     // Events
     events: TimelineEvent[];
     setEvents: (events: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => void;
@@ -152,6 +156,27 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         setSelectedDayOffsetState(offset);
         localStorage.setItem('selectedDayOffset', offset.toString());
     };
+
+    const [dayTransportModes, setDayTransportModes] = useState<Record<number, 'DRIVE' | 'TWO_WHEELER' | 'WALK'>>(() => {
+        const saved = localStorage.getItem(`tripTransportModes_${currentTripId || 'default'}`);
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const setDayTransportMode = (dayOffset: number, mode: 'DRIVE' | 'TWO_WHEELER' | 'WALK') => {
+        setDayTransportModes(prev => {
+            const next = { ...prev, [dayOffset]: mode };
+            localStorage.setItem(`tripTransportModes_${currentTripId || 'default'}`, JSON.stringify(next));
+            return next;
+        });
+    };
+
+    // Update transport modes when trip changes
+    useEffect(() => {
+        if (currentTripId) {
+            const saved = localStorage.getItem(`tripTransportModes_${currentTripId}`);
+            setDayTransportModes(saved ? JSON.parse(saved) : {});
+        }
+    }, [currentTripId]);
 
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -620,6 +645,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             addHistoryRecord,
             recordHistory: addHistoryRecord, // Alias for more natural naming
             updateHistoryComment,
+            dayTransportModes,
+            setDayTransportMode,
         }}>
             {children}
         </TripContext.Provider>

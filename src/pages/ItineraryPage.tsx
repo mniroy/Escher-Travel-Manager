@@ -101,7 +101,9 @@ export default function ItineraryPage() {
         events, setEvents, deleteEvent, recordHistory,
         tripDates,
         selectedDayOffset,
-        setSelectedDayOffset
+        setSelectedDayOffset,
+        dayTransportModes,
+        setDayTransportMode
     } = useTrip();
 
     const [category, setCategory] = useState<Category>('All');
@@ -212,7 +214,8 @@ export default function ItineraryPage() {
             // Check if we have an END event
             const hasEndEvent = currentDayEvents.some(e => e.isEnd);
 
-            const optimizedDay = await optimizeRoute(currentDayEvents, { fixEnd: hasEndEvent });
+            const currentMode = dayTransportModes[selectedDayOffset] || 'DRIVE';
+            const optimizedDay = await optimizeRoute(currentDayEvents, { fixEnd: hasEndEvent, travelMode: currentMode });
 
             // Re-calculate timestamps based on new order and real travel times
             if (optimizedDay.length > 0) {
@@ -259,7 +262,8 @@ export default function ItineraryPage() {
             // Call Real Optimization API (preserve order)
             // Check if we have an END event
             const hasEndEvent = currentDayEvents.some(e => e.isEnd);
-            const trafficUpdatedEvents = await optimizeRoute(currentDayEvents, { preserveOrder: true, fixEnd: hasEndEvent });
+            const currentMode = dayTransportModes[selectedDayOffset] || 'DRIVE';
+            const trafficUpdatedEvents = await optimizeRoute(currentDayEvents, { preserveOrder: true, fixEnd: hasEndEvent, travelMode: currentMode });
 
             if (trafficUpdatedEvents.length > 0) {
                 let currentTime = parseTime(trafficUpdatedEvents[0].time); // Preserve start time
@@ -1028,6 +1032,12 @@ export default function ItineraryPage() {
                                     onDescriptionSave={handleDescriptionSave}
                                     onDelete={handleDeleteEvent}
                                     onReplace={handleReplace}
+                                    currentTransportMode={dayTransportModes[selectedDayOffset] || 'DRIVE'}
+                                    onTransportModeChange={(mode: 'DRIVE' | 'TWO_WHEELER' | 'WALK') => {
+                                        setDayTransportMode(selectedDayOffset, mode);
+                                        // Immediately trigger a traffic update to reflect the new mode
+                                        handleUpdateTraffic();
+                                    }}
                                 />
                             ))}
                         </AnimatePresence>
@@ -1225,7 +1235,9 @@ function DraggableTimelineItem({
     onDescriptionChange,
     onDescriptionSave,
     onDelete,
-    onReplace
+    onReplace,
+    currentTransportMode,
+    onTransportModeChange
 }: any) {
     const controls = useDragControls();
 
@@ -1296,6 +1308,8 @@ function DraggableTimelineItem({
                         onDelete={onDelete}
                         onReplace={onReplace}
                         selectedDayName={selectedDayName}
+                        currentTransportMode={currentTransportMode}
+                        onTransportModeChange={onTransportModeChange}
                     />
                     {isEditing && (
                         <button

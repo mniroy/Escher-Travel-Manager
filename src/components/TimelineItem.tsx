@@ -1,4 +1,4 @@
-import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight } from 'lucide-react';
+import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight, Bike, Footprints } from 'lucide-react';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -143,9 +143,11 @@ export interface TimelineItemProps {
     onDelete?: (id: string) => void;
     onReplace?: (id: string) => void;
     selectedDayName?: string;
+    currentTransportMode?: 'DRIVE' | 'TWO_WHEELER' | 'WALK';
+    onTransportModeChange?: (mode: 'DRIVE' | 'TWO_WHEELER' | 'WALK') => void;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, onDelete, onReplace, selectedDayName }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, onDelete, onReplace, selectedDayName, currentTransportMode, onTransportModeChange }: TimelineItemProps) {
     // Helper to ensure we don't display the address as the description
     const getCleanDescription = () => {
         const desc = event.description?.trim();
@@ -274,6 +276,33 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                             <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">Now</span>
                                         </button>
                                     </div>
+
+                                    {/* Day Transportation Selector - Pointed to by Red Circle */}
+                                    {onTransportModeChange && (
+                                        <div className="flex items-center gap-1 bg-white border-2 border-blue-100 rounded-full p-1 shadow-xl z-30 transition-all hover:scale-105 ml-3">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onTransportModeChange('DRIVE'); }}
+                                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${currentTransportMode === 'DRIVE' ? 'bg-[#007AFF] text-white' : 'text-zinc-400 hover:bg-zinc-100'}`}
+                                                title="Main Mode: Car"
+                                            >
+                                                <Car size={13} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onTransportModeChange('TWO_WHEELER'); }}
+                                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${currentTransportMode === 'TWO_WHEELER' ? 'bg-[#007AFF] text-white' : 'text-zinc-400 hover:bg-zinc-100'}`}
+                                                title="Main Mode: Motorcycle"
+                                            >
+                                                <Bike size={13} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onTransportModeChange('WALK'); }}
+                                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${currentTransportMode === 'WALK' ? 'bg-[#007AFF] text-white' : 'text-zinc-400 hover:bg-zinc-100'}`}
+                                                title="Main Mode: Walk"
+                                            >
+                                                <Footprints size={13} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className={`${badgeBgColor} border-2 ${badgeBorderColor} rounded-full px-5 py-2 flex items-center gap-2.5 shadow-xl whitespace-nowrap transition-all duration-500 z-20 hover:scale-105 backdrop-blur-sm`}>

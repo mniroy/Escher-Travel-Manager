@@ -5,7 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { items, preserveOrder = false, fixEnd = false } = req.body;
+    const { items, preserveOrder = false, fixEnd = false, travelMode = 'DRIVE' } = req.body;
 
     if (!items || !Array.isArray(items) || items.length < 2) {
         return res.status(400).json({ error: 'At least 2 items are required to optimize a route.' });
@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 origin: originLoc,
                 destination: destLoc,
                 intermediates: intermediates,
-                travelMode: 'DRIVE', // Configurable? Default to DRIVE for now.
+                travelMode: travelMode,
                 routingPreference: 'TRAFFIC_AWARE',
                 optimizeWaypointOrder: !preserveOrder,
                 // Google Routes API requires departureTime to be in the future for TRAFFIC_AWARE.

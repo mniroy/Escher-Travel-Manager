@@ -217,7 +217,7 @@ export function isGoogleMapsUrl(text: string): boolean {
 /**
  * Call the optimization API to reorder events
  */
-export async function optimizeRoute(events: any[], options?: { preserveOrder?: boolean; fixEnd?: boolean }): Promise<any[]> {
+export async function optimizeRoute(events: any[], options?: { preserveOrder?: boolean; fixEnd?: boolean; travelMode?: string }): Promise<any[]> {
     // We need at least 3 items to optimize 'intermediates' meaningfully (Origin -> A -> Destination), or 2 items to just get leg info.
     if (events.length < 2) return events;
 
@@ -229,7 +229,8 @@ export async function optimizeRoute(events: any[], options?: { preserveOrder?: b
             body: JSON.stringify({
                 items: events,
                 preserveOrder: options?.preserveOrder,
-                fixEnd: options?.fixEnd
+                fixEnd: options?.fixEnd,
+                travelMode: options?.travelMode
             })
         });
 
