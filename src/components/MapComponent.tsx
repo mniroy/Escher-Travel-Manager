@@ -112,9 +112,15 @@ export function MapComponent({
                 gestureHandling: 'greedy',
             });
 
-            if (onMapClick) {
-                mapInstanceRef.current.addListener("click", () => {
-                    onMapClick();
+            if (onMapClick || onMarkerClick) {
+                mapInstanceRef.current.addListener("click", (event: any) => {
+                    if (event.placeId) {
+                        // Clicked a Google POI
+                        event.stop(); // PREVENT DEFAULT POPUP
+                        if (onMarkerClick) onMarkerClick(event.placeId);
+                    } else if (onMapClick) {
+                        onMapClick();
+                    }
                 });
             }
         }

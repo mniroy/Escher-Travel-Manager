@@ -1,5 +1,5 @@
 import { Layout } from '../components/Layout';
-import { MapPin, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { MapPin, ChevronUp, ChevronDown, X, Plus, Loader2, Star } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useState, useMemo, useEffect } from 'react';
 import { MapComponent } from '../components/MapComponent';
@@ -10,56 +10,158 @@ export default function MapPage() {
         tripDates,
         events,
         selectedDayOffset,
-        setSelectedDayOffset
+        setSelectedDayOffset,
+        setEvents
     } = useTrip();
+
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
     const [isRouteCardExpanded, setIsRouteCardExpanded] = useState(true);
     const [liveDistance, setLiveDistance] = useState<number | null>(null);
     const [liveDuration, setLiveDuration] = useState<number | null>(null);
+    const [tempPlace, setTempPlace] = useState<any | null>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
     // Reset live data and selection when changing days
     useEffect(() => {
         setLiveDistance(null);
         setLiveDuration(null);
         setSelectedPlaceId(null);
+        setTempPlace(null);
     }, [selectedDayOffset]);
+
+    // Handle fetching details for discovery
+    useEffect(() => {
+        if (!selectedPlaceId) {
+            setTempPlace(null);
+            return;
+        }
+
+        const existing = events.find(e => e.id === selectedPlaceId);
+        if (existing) {
+            setTempPlace(null);
+            return;
+        }
+
+        // If matched by placeId in trip (but maybe id is different instance)
+        const matchedByPlaceId = events.find(e => e.placeId === selectedPlaceId);
+        if (matchedByPlaceId) {
+            setSelectedPlaceId(matchedByPlaceId.id); // Switch to the trip instance
+            return;
+        }
+
+        // Fetch new place details
+        const fetchDetails = async () => {
+            setIsLoadingDetails(true);
+            try {
+                const res = await fetch(`/api/place-details?placeId=${selectedPlaceId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setTempPlace({
+                        id: selectedPlaceId,
+                        title: data.displayName,
+                        address: data.formattedAddress,
+                        rating: data.rating,
+                        reviews: data.userRatingCount,
+                        image: data.photoUrls?.[0],
+                        placeId: selectedPlaceId,
+                        lat: data.location?.latitude,
+                        lng: data.location?.longitude,
+                        type: 'Play', // Default
+                        status: 'Discovery'
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to fetch place details:', error);
+            } finally {
+                setIsLoadingDetails(false);
+            }
+        };
+
+        fetchDetails();
+    }, [selectedPlaceId, events]);
 
     const selectedDate = tripDates.find(d => d.offset === selectedDayOffset);
 
     const selectedEvent = useMemo(() => {
-        return events.find(e => e.id === selectedPlaceId);
-    }, [events, selectedPlaceId]);
+        return events.find(e => e.id === selectedPlaceId) || tempPlace;
+    }, [events, selectedPlaceId, tempPlace]);
 
     const scheduledInfo = useMemo(() => {
         if (!selectedEvent) return null;
-        // 1. If the clicked event itself is scheduled
-        if ((selectedEvent.dayOffset ?? -1) >= 0) {
-            const date = tripDates.find(d => d.offset === selectedEvent.dayOffset);
+
+        // 1. Check if it's scheduled on a specific day
+        const dayOffset = selectedEvent.dayOffset ?? -1;
+        if (dayOffset >= 0) {
+            const date = tripDates.find(d => d.offset === dayOffset);
             return {
+                status: 'scheduled',
                 isScheduled: true,
                 text: `Scheduled on Day ${date ? date.offset + 1 : '?'} (${date?.dayName})`
             };
         }
-        // 2. If it's a saved place, check if it's scheduled elsewhere
-        const scheduledVar = events.find(e =>
+
+        // 2. If it's a library item or discovery, check if it's scheduled elsewhere in the trip
+        const scheduledElsewhere = events.find(e =>
             (e.dayOffset ?? -1) >= 0 &&
             ((e.placeId && e.placeId === selectedEvent.placeId) ||
                 (e.title === selectedEvent.title))
         );
 
-        if (scheduledVar) {
-            const date = tripDates.find(d => d.offset === scheduledVar.dayOffset);
+        if (scheduledElsewhere) {
+            const date = tripDates.find(d => d.offset === scheduledElsewhere.dayOffset);
             return {
+                status: 'scheduled',
                 isScheduled: true,
                 text: `Scheduled on Day ${date ? date.offset + 1 : '?'} (${date?.dayName})`
             };
         }
 
+        // 3. Check if it's already saved in the library
+        const isSaved = events.some(e =>
+            e.status === 'Saved' &&
+            ((e.placeId && e.placeId === selectedEvent.placeId) || (e.title === selectedEvent.title))
+        );
+
+        if (isSaved || selectedEvent.status === 'Saved') {
+            return {
+                status: 'saved',
+                isScheduled: false,
+                text: "Saved in Library"
+            };
+        }
+
         return {
+            status: 'discovery',
             isScheduled: false,
-            text: "Saved in Library"
+            text: "New Discovery"
         };
     }, [selectedEvent, events, tripDates]);
+
+    const handleAddToLibrary = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!selectedEvent) return;
+
+        const isAlreadySaved = events.some(evt =>
+            (evt.placeId && evt.placeId === selectedEvent.placeId) ||
+            (evt.title === selectedEvent.title)
+        );
+
+        if (isAlreadySaved) {
+            alert("This place is already in your library!");
+            return;
+        }
+
+        const newSavedEvent = {
+            ...selectedEvent,
+            id: crypto.randomUUID(), // New ID for the library instance
+            status: 'Saved',
+            dayOffset: -1, // Library items have no specific day
+            time: '09:00 AM' // Default time
+        };
+
+        setEvents(prev => [...prev, newSavedEvent]);
+        setSelectedPlaceId(null); // Close the detail card
+    };
 
     // Filter events for the selected day and sort by time
     // We treat 'TBD' times as last
@@ -76,7 +178,7 @@ export default function MapPage() {
     }, [events, selectedDayOffset]);
 
     // Prepare Map Data
-    const { markers, mapCenter } = useMemo(() => {
+    const { markers, defaultCenter } = useMemo(() => {
         // 1. Current Day Route Markers (Numbered)
         const dayMarkers = dayEvents
             .filter(e => e.lat && e.lng)
@@ -86,7 +188,7 @@ export default function MapPage() {
                 lng: e.lng!,
                 title: e.title,
                 label: (getDayEventIndex(dayEvents, e.id) + 1).toString(),
-                color: '#007AFF', // Route is always Blue default, or customize
+                color: e.id === selectedPlaceId ? '#FF3B30' : '#007AFF', // Highlight selected
                 isRoutePoint: true
             }));
 
@@ -122,7 +224,7 @@ export default function MapPage() {
                     title: e.title,
                     label: '', // No number for POIs
                     type: e.type as 'Transport' | 'Stay' | 'Eat' | 'Play',
-                    color: getTypeColor(e.type),
+                    color: e.id === selectedPlaceId ? '#FF3B30' : getTypeColor(e.type), // Highlight selected
                     isRoutePoint: false
                 }));
         }
@@ -139,9 +241,18 @@ export default function MapPage() {
 
         return {
             markers: allMarkers,
-            mapCenter: center
+            defaultCenter: center
         };
-    }, [dayEvents, events, selectedDayOffset]);
+    }, [dayEvents, events, selectedDayOffset, selectedPlaceId]);
+
+    const activeCenter = useMemo(() => {
+        if (selectedEvent && selectedEvent.lat && selectedEvent.lng) {
+            return { lat: selectedEvent.lat, lng: selectedEvent.lng };
+        }
+        return defaultCenter;
+    }, [selectedEvent, defaultCenter]);
+
+    const activeZoom = selectedEvent ? 16 : 12;
 
     const totalDistance = dayEvents.reduce((acc, curr) => {
         if (curr.travelDistance) {
@@ -177,8 +288,8 @@ export default function MapPage() {
 
                 <MapComponent
                     apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}
-                    center={mapCenter}
-                    zoom={12}
+                    center={activeCenter}
+                    zoom={activeZoom}
                     markers={markers}
                     className="w-full h-full"
                     onRouteInfo={(dist, dur) => {
@@ -211,7 +322,7 @@ export default function MapPage() {
 
                     {/* DETAIL CARD (Overlay) */}
                     <AnimatePresence>
-                        {selectedEvent && scheduledInfo && (
+                        {selectedPlaceId && (
                             <motion.div
                                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -219,32 +330,101 @@ export default function MapPage() {
                                 transition={{ duration: 0.2 }}
                                 className="bg-white/95 backdrop-blur-xl rounded-2xl border border-zinc-100 shadow-[0_8px_30px_rgba(0,0,0,0.12)] pointer-events-auto p-4 relative z-30"
                             >
-                                <div className="flex justify-between items-start gap-4 mb-1">
-                                    <div className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-white bg-zinc-400"
-                                        style={{
-                                            backgroundColor:
-                                                selectedEvent.type === 'Eat' ? '#F97316' :
-                                                    selectedEvent.type === 'Stay' ? '#8B5CF6' :
-                                                        selectedEvent.type === 'Transport' ? '#3B82F6' :
-                                                            selectedEvent.type === 'Play' ? '#10B981' : '#9CA3AF'
-                                        }}
-                                    >
-                                        {selectedEvent.type}
+                                {isLoadingDetails ? (
+                                    <div className="flex flex-col items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2" />
+                                        <p className="text-xs text-zinc-500 font-medium">Fetching details...</p>
                                     </div>
-                                    <button
-                                        onClick={() => setSelectedPlaceId(null)}
-                                        className="text-zinc-400 hover:text-zinc-600 -mt-1 -mr-1 p-1"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
+                                ) : selectedEvent ? (
+                                    <>
+                                        <div className="flex gap-4">
+                                            {/* Image Preview */}
+                                            {selectedEvent.image && (
+                                                <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100">
+                                                    <img
+                                                        src={selectedEvent.image}
+                                                        alt={selectedEvent.title}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            )}
 
-                                <h3 className="text-base font-bold text-zinc-900 leading-tight mb-1.5">{selectedEvent.title}</h3>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start gap-4 mb-1">
+                                                    <div className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-white bg-zinc-400"
+                                                        style={{
+                                                            backgroundColor:
+                                                                selectedEvent.type === 'Eat' ? '#F97316' :
+                                                                    selectedEvent.type === 'Stay' ? '#8B5CF6' :
+                                                                        selectedEvent.type === 'Transport' ? '#3B82F6' :
+                                                                            selectedEvent.type === 'Play' ? '#10B981' : '#9CA3AF'
+                                                        }}
+                                                    >
+                                                        {selectedEvent.type}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedPlaceId(null)}
+                                                        className="text-zinc-400 hover:text-zinc-600 -mt-1 -mr-1 p-1"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
 
-                                <div className={`flex items-center gap-2 text-xs ${scheduledInfo.isScheduled ? 'text-blue-600' : 'text-zinc-500'}`}>
-                                    <div className={`w-1.5 h-1.5 rounded-full ${scheduledInfo.isScheduled ? 'bg-blue-500' : 'bg-zinc-300'}`} />
-                                    <span className="font-medium">{scheduledInfo.text}</span>
-                                </div>
+                                                <h3 className="text-base font-bold text-zinc-900 leading-tight mb-1 truncate">{selectedEvent.title}</h3>
+
+                                                {selectedEvent.rating && (
+                                                    <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1.5 font-bold">
+                                                        <Star size={10} className="fill-blue-500 text-blue-500" />
+                                                        <span className="text-zinc-900">{selectedEvent.rating}</span>
+                                                        <span className="font-medium opacity-60">({selectedEvent.reviews?.toLocaleString()})</span>
+                                                    </div>
+                                                )}
+
+                                                {scheduledInfo && (
+                                                    <div className={`flex items-center gap-2 text-[10px] ${scheduledInfo.isScheduled ? 'text-blue-600' : 'text-zinc-400'}`}>
+                                                        <div className={`w-1 h-1 rounded-full ${scheduledInfo.isScheduled ? 'bg-blue-500' : 'bg-zinc-300'}`} />
+                                                        <span className="font-bold uppercase tracking-wider">{scheduledInfo.text}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="mt-4 pt-3 border-t border-zinc-100 flex gap-2">
+                                            {scheduledInfo?.status === 'discovery' && (
+                                                <button
+                                                    onClick={handleAddToLibrary}
+                                                    className="flex-1 bg-[#007AFF] text-white h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                                                >
+                                                    <Plus size={14} strokeWidth={3} />
+                                                    Add to Library
+                                                </button>
+                                            )}
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.title)}&destination_place_id=${selectedEvent.placeId}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`
+                                                        h-11 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border
+                                                        ${scheduledInfo?.status === 'discovery'
+                                                        ? 'w-12 text-zinc-400 border-zinc-200 hover:bg-zinc-50'
+                                                        : 'flex-1 bg-zinc-900 text-white border-zinc-900 shadow-lg shadow-black/10'
+                                                    }
+                                                    `}
+                                                title="Get Directions"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <MapPin size={16} />
+                                                {scheduledInfo?.status !== 'discovery' && <span>Directions</span>}
+                                            </a>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-4">
+                                        <p className="text-xs text-zinc-400">Could not find place details.</p>
+                                        <button onClick={() => setSelectedPlaceId(null)} className="mt-2 text-[#007AFF] text-xs font-bold">Close</button>
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -311,6 +491,7 @@ export default function MapPage() {
                                                         travelTime={event.travelTime}
                                                         congestion={event.congestion}
                                                         index={index + 1}
+                                                        onClick={() => setSelectedPlaceId(event.id)}
                                                     />
                                                 ))}
                                             </div>
@@ -359,11 +540,11 @@ export default function MapPage() {
 
                 </div>
             </div>
-        </Layout>
+        </Layout >
     );
 }
 
-function RouteStop({ title, time, active, last, travelTime, congestion, index }: { title: string; time: string; active?: boolean; last?: boolean; type?: string; travelTime?: string; congestion?: string; index: number }) {
+function RouteStop({ title, time, active, last, travelTime, congestion, index, onClick }: { title: string; time: string; active?: boolean; last?: boolean; type?: string; travelTime?: string; congestion?: string; index: number; onClick?: () => void }) {
 
     let trafficColor = 'text-zinc-400';
     if (congestion === 'high') trafficColor = 'text-red-500';
@@ -371,7 +552,10 @@ function RouteStop({ title, time, active, last, travelTime, congestion, index }:
     else if (congestion === 'low') trafficColor = 'text-emerald-500';
 
     return (
-        <div className={`flex items-start gap-4 relative z-10 ${!last ? 'pb-6' : ''}`}>
+        <div
+            onClick={onClick}
+            className={`flex items-start gap-4 relative z-10 cursor-pointer group/stop ${!last ? 'pb-6' : ''}`}
+        >
 
             <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center border-2 transition-colors relative z-10 font-bold text-[10px]
                 ${active
@@ -383,7 +567,7 @@ function RouteStop({ title, time, active, last, travelTime, congestion, index }:
             </div>
 
             <div className="min-w-0 pt-0.5">
-                <p className={`text-sm font-bold truncate transition-colors ${active ? 'text-zinc-900' : 'text-zinc-500'}`}>{title}</p>
+                <p className={`text-sm font-bold truncate transition-colors ${active ? 'text-zinc-900 font-extrabold' : 'text-zinc-500 group-hover/stop:text-zinc-900 group-hover/stop:font-bold'}`}>{title}</p>
                 <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] font-mono text-zinc-400 bg-zinc-50 px-1.5 py-0.5 rounded">{time || 'TBD'}</span>
 
