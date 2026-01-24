@@ -1,4 +1,4 @@
-import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin } from 'lucide-react';
+import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight } from 'lucide-react';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -139,10 +139,12 @@ export interface TimelineItemProps {
     onDurationChange?: (id: string, newDuration: string) => void;
     onDescriptionChange?: (id: string, newDescription: string) => void;
     onDescriptionSave?: (id: string, finalDescription: string) => void;
+    onDelete?: (id: string) => void;
+    onReplace?: (id: string) => void;
     selectedDayName?: string;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, selectedDayName }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, onDelete, onReplace, selectedDayName }: TimelineItemProps) {
     // Helper to ensure we don't display the address as the description
     const getCleanDescription = () => {
         const desc = event.description?.trim();
@@ -212,18 +214,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     const todayHours = getTodayHours(event.openingHours, selectedDayName);
     const timeColor = todayHours ? getTimeColor(event.time, todayHours.open, todayHours.close, todayHours.isClosed) : 'text-white/90';
 
-    // Calculate End Time for display
-    let timeDisplay = event.time;
-    if (event.duration && event.time && !isCompact && !isSkipped && !isFirst && !event.isEnd) {
-        const startMins = parseTime(event.time);
-        const durationMins = parseDuration(event.duration);
-        const endMins = startMins + durationMins;
-        const endTimeStr = formatTime(endMins);
-        // Format: "9:00 AM - 10:30 AM"
-        // If period is same, maybe "9:00 - 10:30 AM"? 
-        // Let's stick to full format for clarity as requested "start time on that particular place, to the end time"
-        timeDisplay = `${event.time} – ${endTimeStr}`;
-    }
+    const timeDisplay = event.time;
 
     return (
         <div className="flex flex-col items-center relative group pb-4 w-full">
@@ -523,9 +514,31 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                     )}
                                                 </div>
                                             </div>
-                                            {event.status && event.status !== 'Scheduled' && (
-                                                <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                {event.status && event.status !== 'Scheduled' && (
+                                                    <span className="text-[10px] text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full font-bold border border-zinc-700/50 backdrop-blur-md">{event.status}</span>
+                                                )}
+
+                                                {/* Quick Actions (Remove/Replace) */}
+                                                {!isCompact && (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onReplace?.(event.id); }}
+                                                            className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-[#007AFF] hover:border-[#007AFF] transition-all"
+                                                            title="Replace place"
+                                                        >
+                                                            <ArrowLeftRight size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onDelete?.(event.id); }}
+                                                            className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-red-400 hover:bg-red-500/20 hover:border-red-500/30 transition-all"
+                                                            title="Remove from itinerary"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <h3 className="text-xl font-bold text-white mb-2 leading-tight tracking-wide drop-shadow-md">{event.title}</h3>

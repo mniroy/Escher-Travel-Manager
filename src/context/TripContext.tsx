@@ -39,6 +39,10 @@ interface TripContextType {
     createNewTrip: () => Promise<void>;
     switchTrip: (id: string) => Promise<void>;
 
+    // Current State
+    selectedDayOffset: number;
+    setSelectedDayOffset: (offset: number) => void;
+
     // Refresh data
     refreshData: () => Promise<void>;
 }
@@ -130,6 +134,17 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     const eventsRef = React.useRef<TimelineEvent[]>([]);
     // Ref to ignore realtime updates for a bit after we push changes
     const lastLocalUpdateRef = React.useRef<number>(0);
+
+    // Persisted UI State
+    const [selectedDayOffset, setSelectedDayOffsetState] = useState<number>(() => {
+        const saved = localStorage.getItem('selectedDayOffset');
+        return saved !== null ? parseInt(saved, 10) : 0;
+    });
+
+    const setSelectedDayOffset = (offset: number) => {
+        setSelectedDayOffsetState(offset);
+        localStorage.setItem('selectedDayOffset', offset.toString());
+    };
 
     const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -543,7 +558,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             createNewTrip, // New
             switchTrip, // New
             refreshData: loadData,
-            updateTripDetails // New
+            updateTripDetails, // New
+            selectedDayOffset,
+            setSelectedDayOffset
         }}>
             {children}
         </TripContext.Provider>

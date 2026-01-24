@@ -5,9 +5,9 @@ import { uuidv4 } from '../lib/uuid';
 import { Category, CategoryFilter } from '../components/CategoryFilter';
 import { TimelineItem, TimelineEvent } from '../components/TimelineItem';
 import { AddActivityModal, NewActivity } from '../components/AddActivityModal';
-import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical, Calendar } from 'lucide-react';
+import { Plus, Plane, Coffee, MapPin, Bed, Pencil, Check, X, Sparkles, ChevronUp, ChevronDown, RefreshCcw, Clock, CarFront, Hourglass, GripVertical, Calendar, CalendarDays, ArrowRight } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent, Reorder, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, Reorder, useDragControls } from 'framer-motion';
 import { optimizeRoute } from '../lib/googleMaps';
 import { PlaceSelectorModal } from '../components/PlaceSelectorModal';
 
@@ -98,26 +98,33 @@ const formatTime = (minutes: number) => {
 export default function ItineraryPage() {
     const {
         tripName,
-        // startDate, // Unused
-        // tripDuration, // Unused
         events, setEvents, deleteEvent,
-        tripDates
+        tripDates,
+        selectedDayOffset,
+        setSelectedDayOffset
     } = useTrip();
 
     const [category, setCategory] = useState<Category>('All');
-    const [selectedDayOffsets, setSelectedDayOffsets] = useState<number[]>([0]); // 0-indexed day offsets
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [isUpdatingTraffic, setIsUpdatingTraffic] = useState(false);
-    // HMR FORCE UPDATE 2
-    const [isControlsExpanded, setIsControlsExpanded] = useState(true);
+    const [isControlsExpanded, setIsControlsExpanded] = useState(false);
+    const [replacingEventId, setReplacingEventId] = useState<string | null>(null);
+    const [isMoveDayModalOpen, setIsMoveDayModalOpen] = useState(false);
 
     const recalculateSchedule = (baseEvents?: TimelineEvent[]) => {
         const sourceEvents = baseEvents || events;
-        const nextEvents = calculateScheduleForList(sourceEvents, selectedDayOffsets);
+        const nextEvents = calculateScheduleForList(sourceEvents, [selectedDayOffset]);
         setEvents(nextEvents);
     };
+
+    // Ensure we are on a valid day when visiting itinerary
+    useEffect(() => {
+        if (selectedDayOffset === -1) {
+            setSelectedDayOffset(0);
+        }
+    }, [selectedDayOffset, setSelectedDayOffset]);
 
     const handleTimeChange = (id: string, newHHMM: string) => {
         const minutes = parseTime(newHHMM);
@@ -205,8 +212,8 @@ export default function ItineraryPage() {
         addToHistory(events);
 
         try {
-            const currentDayEvents = events.filter(e => selectedDayOffsets.includes(e.dayOffset || 0));
-            const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
+            const currentDayEvents = events.filter(e => e.dayOffset === selectedDayOffset);
+            const otherEvents = events.filter(e => e.dayOffset !== selectedDayOffset);
 
             // Call Real Optimization API (with reorder)
             // Check if we have an END event
@@ -253,8 +260,8 @@ export default function ItineraryPage() {
         setIsUpdatingTraffic(true);
         addToHistory(events);
         try {
-            const currentDayEvents = events.filter(e => selectedDayOffsets.includes(e.dayOffset || 0));
-            const otherEvents = events.filter(e => !selectedDayOffsets.includes(e.dayOffset || 0));
+            const currentDayEvents = events.filter(e => e.dayOffset === selectedDayOffset);
+            const otherEvents = events.filter(e => e.dayOffset !== selectedDayOffset);
 
             // Call Real Optimization API (preserve order)
             // Check if we have an END event
@@ -442,13 +449,8 @@ export default function ItineraryPage() {
         }
     };
 
-    const toggleDate = (offset: number) => {
-        // Single Select Mode
-        setSelectedDayOffsets([offset]);
-    };
-
     const handleSaveActivity = async (activityData: NewActivity) => {
-        const targetOffset = selectedDayOffsets[0] || 0;
+        const targetOffset = selectedDayOffset;
 
         // Force browser to acknowledge execution
         // alert('DEBUG: Saving Activity - OPENING HOURS: ' + (activityData.openingHours?.length || 'NONE'));
@@ -507,7 +509,7 @@ export default function ItineraryPage() {
                 // Refactoring recalculateSchedule to pure function is best.
                 // For now, let's replicate the logic or create a helper that returns the list.
 
-                return calculateScheduleForList(updated, selectedDayOffsets);
+                return calculateScheduleForList(updated, [selectedDayOffset]);
             });
 
             setEditingEvent(null);
@@ -534,7 +536,7 @@ export default function ItineraryPage() {
                     nextEvents = [...prev, newEvent];
                 }
 
-                return calculateScheduleForList(nextEvents, selectedDayOffsets);
+                return calculateScheduleForList(nextEvents, [selectedDayOffset]);
             });
             setInsertIndex(null);
         }
@@ -547,8 +549,33 @@ export default function ItineraryPage() {
         }
     };
 
+    const handleReplace = (id: string) => {
+        setReplacingEventId(id);
+        setIsSelectorOpen(true);
+    };
+
     const handleSelectFromLibrary = (place: TimelineEvent, durationMins: number, isStart: boolean, isEnd: boolean) => {
-        const targetDay = selectedDayOffsets[0] || 0;
+        const targetDay = selectedDayOffset;
+
+        if (replacingEventId) {
+            setEvents(prev => {
+                const updated = prev.map(e => e.id === replacingEventId ? {
+                    ...place,
+                    id: replacingEventId, // Maintain stability
+                    status: 'Scheduled',
+                    dayOffset: e.dayOffset,
+                    duration: durationMins < 60 ? `${durationMins}m` : `${Math.floor(durationMins / 60)}h${durationMins % 60 ? ` ${durationMins % 60}m` : ''}`,
+                    time: e.time, // Preserve time for now, or use recalculate
+                    isStart: isStart || e.isStart,
+                    isEnd: isEnd || e.isEnd,
+                    description: '', // Reset notes
+                } : e);
+                return calculateScheduleForList(updated, [selectedDayOffset]);
+            });
+            setReplacingEventId(null);
+            setIsSelectorOpen(false);
+            return;
+        }
 
         const createEvent = (isStartFlag: boolean, isEndFlag: boolean): TimelineEvent => ({
             ...place,
@@ -610,7 +637,7 @@ export default function ItineraryPage() {
                 addEventNormal(normalEvent);
             }
 
-            return calculateScheduleForList([...otherEvents, ...newDayList], selectedDayOffsets);
+            return calculateScheduleForList([...otherEvents, ...newDayList], [selectedDayOffset]);
         });
 
         // DO NOT CLOSE SELECTOR
@@ -633,6 +660,26 @@ export default function ItineraryPage() {
         setIsModalOpen(true);
     };
 
+    const handleMoveDay = (targetOffset: number) => {
+        if (targetOffset === selectedDayOffset) {
+            setIsMoveDayModalOpen(false);
+            return;
+        }
+
+        if (window.confirm(`Move all activities from Day ${selectedDayOffset + 1} to Day ${targetOffset + 1}?`)) {
+            addToHistory(events);
+            setEvents(prev => {
+                const updated = prev.map(e =>
+                    e.dayOffset === selectedDayOffset ? { ...e, dayOffset: targetOffset } : e
+                );
+                // Also recalculate the target day to ensure schedule is valid
+                return calculateScheduleForList(updated, [targetOffset]);
+            });
+            setSelectedDayOffset(targetOffset);
+            setIsMoveDayModalOpen(false);
+        }
+    };
+
     const openEditModal = (event: TimelineEvent) => {
         if (!isEditing) return; // Only allow editing specific items when in Edit Mode
         setEditingEvent(event);
@@ -641,7 +688,7 @@ export default function ItineraryPage() {
 
     const filteredEvents = events.filter(e => {
         const matchesCategory = category === 'All' || e.type === category;
-        const matchesDate = selectedDayOffsets.includes(e.dayOffset ?? 0);
+        const matchesDate = selectedDayOffset === -1 || e.dayOffset === selectedDayOffset;
         return matchesCategory && matchesDate;
     });
 
@@ -685,23 +732,7 @@ export default function ItineraryPage() {
         return () => clearInterval(interval);
     }, [validImages.length]);
 
-    // Scroll-based Collapse & Auto-Expand Logic
-    const [hasCollapsedOnScroll, setHasCollapsedOnScroll] = useState(false);
-    useMotionValueEvent(scrollY, "change", (latest) => {
-        const collapseThreshold = 100;
-        const expandThreshold = 50;
-
-        if (latest > collapseThreshold && !hasCollapsedOnScroll && isControlsExpanded) {
-            setIsControlsExpanded(false);
-            setHasCollapsedOnScroll(true);
-        } else if (latest < expandThreshold) {
-            // "Pull down" / Back to top -> Auto Expand
-            if (!isControlsExpanded) {
-                setIsControlsExpanded(true);
-            }
-            setHasCollapsedOnScroll(false);
-        }
-    });
+    // Scroll-based Collapse & Auto-Expand Logic - Removed to allow manual control only
 
     // Calculate Stats
     const stats = useMemo(() => {
@@ -746,6 +777,8 @@ export default function ItineraryPage() {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    const [isDateSelectorExpanded, setIsDateSelectorExpanded] = useState(true);
 
     // Helper to format real-time header
     const formatRealTime = (date: Date) => {
@@ -847,7 +880,7 @@ export default function ItineraryPage() {
                     {/* Trip Summary Stats - Always Visible */}
                     <div className="px-6 pt-5 pb-4 border-b border-zinc-100">
                         <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em] mb-3 text-center">
-                            Day {(selectedDayOffsets[0] || 0) + 1} Summary
+                            Day {selectedDayOffset + 1} Summary
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                             <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-xl border border-zinc-100">
@@ -905,44 +938,64 @@ export default function ItineraryPage() {
                                         </div>
                                     </div>
 
-                                    {/* Date Section */}
-                                    <div className="pt-3 border-t border-zinc-100/50">
-                                        <div className="px-6 mb-2">
-                                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em]">Date Selection</span>
+                                    {/* Actions Bar inside Collapsible */}
+                                    <div className="px-6 py-4 border-t border-zinc-100/50">
+                                        <div className="mb-2">
+                                            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-[0.15em]">Quick Actions</span>
                                         </div>
-                                        <div className="flex gap-2 flex-wrap justify-start px-6 pb-4 overflow-x-auto no-scrollbar">
-                                            {tripDates.map((dateObj, i) => {
-                                                const isSelected = selectedDayOffsets.includes(dateObj.offset);
+                                        <div className="grid grid-cols-3 gap-3 w-full">
+                                            <button
+                                                onClick={handleUpdateTraffic}
+                                                disabled={isUpdatingTraffic}
+                                                className={`
+                                                h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
+                                                ${isUpdatingTraffic
+                                                        ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-wait'
+                                                        : 'bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95'
+                                                    }
+                                            `}
+                                            >
+                                                <RefreshCcw size={14} className={isUpdatingTraffic ? 'animate-spin' : ''} />
+                                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isUpdatingTraffic ? 'Updating...' : 'Update Traffic'}</span>
+                                            </button>
 
-                                                // Check if date is in the past (yesterday or earlier)
-                                                // Create UTC Comparison to avoid timezone issues
-                                                const today = new Date();
-                                                const checkDate = new Date(dateObj.dateObj); // Clone
+                                            <button
+                                                onClick={handleOptimize}
+                                                disabled={isOptimizing}
+                                                className={`
+                                                h-14 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all w-full
+                                                ${isOptimizing
+                                                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
+                                                        : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
+                                                    }
+                                            `}
+                                            >
+                                                <Sparkles size={14} className={isOptimizing ? 'animate-spin' : ''} />
+                                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-90">{isOptimizing ? 'Optimizing...' : 'Optimize Route'}</span>
+                                            </button>
 
-                                                // Normalize to midnight for simple comparison
-                                                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                                                const startOfCheck = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+                                            <button
+                                                onClick={handleToggleEdit}
+                                                className={`h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
+                                                ${isEditing
+                                                        ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
+                                                        : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
+                                            `}
+                                            >
+                                                {isEditing ? <Check size={16} /> : <Pencil size={14} />}
+                                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isEditing ? 'Done' : 'Edit Mode'}</span>
+                                            </button>
 
-                                                const isPast = startOfCheck < startOfToday;
-
-                                                return (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => toggleDate(dateObj.offset)}
-                                                        className={`
-                                                    flex flex-col items-center justify-center min-w-[3rem] h-14 rounded-2xl transition-all duration-300 border
-                                                    ${isSelected
-                                                                ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-blue-500/40 scale-105 z-10'
-                                                                : isPast
-                                                                    ? 'bg-zinc-50 text-zinc-300 border-zinc-100 opacity-60 hover:opacity-100 hover:bg-white hover:border-zinc-300 hover:text-zinc-500' // Past style
-                                                                    : 'bg-white text-zinc-500 border-zinc-200 shadow-sm hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-700'} // Future/Present style
-                                                `}
-                                                    >
-                                                        <span className={`text-base leading-none mb-0.5 ${isSelected ? 'font-bold' : 'font-bold'} ${!isSelected && isPast ? 'text-zinc-300' : (!isSelected ? 'text-zinc-700' : '')}`}>{dateObj.dateNum}</span>
-                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white/90' : (isPast ? 'text-zinc-300' : 'text-zinc-400')}`}>{dateObj.dayName}</span>
-                                                    </button>
-                                                )
-                                            })}
+                                            {/* Move Day Button */}
+                                            {isEditing && (
+                                                <button
+                                                    onClick={() => setIsMoveDayModalOpen(true)}
+                                                    className="h-14 px-2 rounded-2xl border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95 flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full"
+                                                >
+                                                    <CalendarDays size={14} />
+                                                    <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">Move Day</span>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -952,52 +1005,6 @@ export default function ItineraryPage() {
                         )}
                     </AnimatePresence>
 
-                    {/* Edit Controls Bar - Always Visible */}
-                    <div className="px-6 py-3 w-full bg-zinc-50/95 backdrop-blur-xl border-t border-zinc-200">
-                        <div className="grid grid-cols-3 gap-3 w-full">
-                            <button
-                                onClick={handleUpdateTraffic}
-                                disabled={isUpdatingTraffic}
-                                className={`
-                                h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
-                                ${isUpdatingTraffic
-                                        ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-wait'
-                                        : 'bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95'
-                                    }
-                            `}
-                            >
-                                <RefreshCcw size={14} className={isUpdatingTraffic ? 'animate-spin' : ''} />
-                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isUpdatingTraffic ? 'Updating...' : 'Update Traffic'}</span>
-                            </button>
-
-                            <button
-                                onClick={handleOptimize}
-                                disabled={isOptimizing}
-                                className={`
-                                h-14 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all w-full
-                                ${isOptimizing
-                                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 cursor-wait'
-                                        : 'bg-[#007AFF] text-white shadow-md shadow-blue-500/30 hover:bg-blue-600 hover:scale-105 active:scale-95'
-                                    }
-                            `}
-                            >
-                                <Sparkles size={14} className={isOptimizing ? 'animate-spin' : ''} />
-                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-90">{isOptimizing ? 'Optimizing...' : 'Optimize Route'}</span>
-                            </button>
-
-                            <button
-                                onClick={handleToggleEdit}
-                                className={`h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
-                                ${isEditing
-                                        ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
-                                        : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
-                            `}
-                            >
-                                {isEditing ? <Check size={16} /> : <Pencil size={14} />}
-                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isEditing ? 'Done' : 'Edit Mode'}</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1031,6 +1038,8 @@ export default function ItineraryPage() {
                                     onDurationChange={handleDurationChange}
                                     onDescriptionChange={handleDescriptionChange}
                                     onDescriptionSave={handleDescriptionSave}
+                                    onDelete={handleDeleteEvent}
+                                    onReplace={handleReplace}
                                 />
                             ))}
                         </AnimatePresence>
@@ -1063,6 +1072,116 @@ export default function ItineraryPage() {
                     )
                 }
             </div >
+
+            {/* Move Day Modal */}
+            <AnimatePresence>
+                {isMoveDayModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMoveDayModalOpen(false)}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl overflow-hidden"
+                        >
+                            <div className="p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-lg font-bold text-zinc-900">Move Day {selectedDayOffset + 1} To...</h3>
+                                    <button onClick={() => setIsMoveDayModalOpen(false)} className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500">
+                                        <X size={18} />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto no-scrollbar pb-2">
+                                    {tripDates.map((dateObj) => (
+                                        <button
+                                            key={dateObj.offset}
+                                            onClick={() => handleMoveDay(dateObj.offset)}
+                                            disabled={dateObj.offset === selectedDayOffset}
+                                            className={`
+                                                p-4 rounded-2xl border text-left transition-all
+                                                ${dateObj.offset === selectedDayOffset
+                                                    ? 'bg-zinc-50 border-zinc-100 text-zinc-300 cursor-not-allowed'
+                                                    : 'bg-white border-zinc-200 text-zinc-900 hover:border-[#007AFF] hover:bg-blue-50/50 active:scale-95'
+                                                }
+                                            `}
+                                        >
+                                            <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mb-1">Day {dateObj.offset + 1}</div>
+                                            <div className="font-bold text-sm">{dateObj.dateNum} {MONTHS[dateObj.dateObj.getUTCMonth()]}</div>
+                                            <div className="text-xs text-zinc-500">{dateObj.dayName}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Bottom Date Selector - Unified Collapsible Pill */}
+            <div className="fixed bottom-24 right-4 z-40 pointer-events-none">
+                <motion.div
+                    layout
+                    transition={{ type: "spring", stiffness: 300, damping: 30, shadow: { duration: 0.2 } }}
+                    className="pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[1.75rem] shadow-[0_8px_30px_rgba(0,0,0,0.15)] border border-zinc-100 flex items-center p-1.5"
+                >
+                    <AnimatePresence initial={false}>
+                        {isDateSelectorExpanded && (
+                            <motion.div
+                                initial={{ width: 0, opacity: 0, marginRight: 0 }}
+                                animate={{ width: "auto", opacity: 1, marginRight: 8 }}
+                                exit={{ width: 0, opacity: 0, marginRight: 0 }}
+                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                                className="overflow-hidden flex-1"
+                            >
+                                <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-0.5 max-w-[calc(100vw-10rem)] overscroll-contain touch-pan-x">
+                                    {tripDates.map((dateItem) => {
+                                        const isSelected = selectedDayOffset === dateItem.offset;
+                                        const today = new Date();
+                                        const checkDate = new Date(dateItem.dateObj);
+                                        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                        const startOfCheck = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+                                        const isPast = startOfCheck < startOfToday;
+
+                                        return (
+                                            <button
+                                                key={dateItem.offset}
+                                                onClick={() => setSelectedDayOffset(dateItem.offset)}
+                                                className={`
+                                                    flex flex-col items-center justify-center min-w-[3rem] h-12 rounded-[1rem] transition-all duration-200
+                                                    ${isSelected
+                                                        ? 'bg-[#007AFF] text-white shadow-md shadow-blue-500/25 scale-100'
+                                                        : isPast
+                                                            ? 'bg-transparent text-zinc-300 hover:text-zinc-400'
+                                                            : 'bg-transparent text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600'
+                                                    }
+                                                `}
+                                            >
+                                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-90">{dateItem.dayName}</span>
+                                                <span className={`text-base font-bold leading-none mt-0.5 ${isSelected ? 'text-white' : (isPast ? 'text-zinc-300' : 'text-zinc-600')}`}>{dateItem.dateNum}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Toggle Button - Now part of the same pill */}
+                    <button
+                        onClick={() => setIsDateSelectorExpanded(!isDateSelectorExpanded)}
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-zinc-500 hover:text-[#007AFF] transition-all active:scale-95 flex-shrink-0"
+                    >
+                        {isDateSelectorExpanded ? <ChevronDown className="rotate-90" size={20} /> : <Calendar size={20} />}
+                    </button>
+                </motion.div>
+            </div>
         </Layout >
     );
 }
@@ -1085,7 +1204,9 @@ function DraggableTimelineItem({
     onBufferChange,
     onDurationChange,
     onDescriptionChange,
-    onDescriptionSave
+    onDescriptionSave,
+    onDelete,
+    onReplace
 }: any) {
     const controls = useDragControls();
 
@@ -1153,6 +1274,8 @@ function DraggableTimelineItem({
                         onDurationChange={onDurationChange}
                         onDescriptionChange={onDescriptionChange}
                         onDescriptionSave={onDescriptionSave}
+                        onDelete={onDelete}
+                        onReplace={onReplace}
                         selectedDayName={selectedDayName}
                     />
                     {isEditing && (

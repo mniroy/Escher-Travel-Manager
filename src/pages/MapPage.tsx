@@ -6,8 +6,12 @@ import { MapComponent } from '../components/MapComponent';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MapPage() {
-    const { tripDates, events } = useTrip();
-    const [selectedDayOffset, setSelectedDayOffset] = useState(-1);
+    const {
+        tripDates,
+        events,
+        selectedDayOffset,
+        setSelectedDayOffset
+    } = useTrip();
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
     const [isRouteCardExpanded, setIsRouteCardExpanded] = useState(true);
     const [liveDistance, setLiveDistance] = useState<number | null>(null);
