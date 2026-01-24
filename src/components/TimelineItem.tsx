@@ -1,7 +1,7 @@
 import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight } from 'lucide-react';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { DurationPicker } from './DurationPicker';
 import { parseTime, formatTime } from '../lib/utils';
@@ -169,7 +169,6 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     const descriptionInputRef = useRef<HTMLInputElement>(null);
     const [showDoneButton, setShowDoneButton] = useState(false);
 
-    const [showTimePicker, setShowTimePicker] = useState(false);
     const [showDurationPicker, setShowDurationPicker] = useState(false);
     const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
