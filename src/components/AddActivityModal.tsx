@@ -274,27 +274,42 @@ export function AddActivityModal({ isOpen, onClose, onSave, initialData, hideDur
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Duration Stepper */}
                                         {!hideDuration && (
-                                            <div className="col-span-2 flex items-center justify-between bg-white p-3 rounded-xl border border-zinc-200 shadow-sm">
-                                                <div className="flex items-center gap-2 text-zinc-500 px-1">
-                                                    <Clock size={16} />
-                                                    <span className="text-xs font-bold uppercase tracking-wider">Duration</span>
+                                            <div className="col-span-2 space-y-3">
+                                                <div className="flex items-center justify-between bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
+                                                    <div className="flex items-center gap-2 text-zinc-500">
+                                                        <Clock size={16} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Stay Duration</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <button
+                                                            onClick={() => adjustDuration(-15)}
+                                                            className="w-10 h-10 rounded-xl bg-white shadow-sm border border-zinc-200 flex items-center justify-center text-zinc-600 active:scale-90 transition-all"
+                                                        >
+                                                            <Minus size={16} strokeWidth={2.5} />
+                                                        </button>
+                                                        <span className="text-zinc-900 font-black min-w-[70px] text-center text-lg tracking-tight">
+                                                            {formatMinutesToDuration(durationMinutes)}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => adjustDuration(15)}
+                                                            className="w-10 h-10 rounded-xl bg-white shadow-sm border border-zinc-200 flex items-center justify-center text-zinc-600 active:scale-90 transition-all"
+                                                        >
+                                                            <Plus size={16} strokeWidth={2.5} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={() => adjustDuration(-30)}
-                                                        className="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 transition-colors"
-                                                    >
-                                                        <Minus size={14} strokeWidth={3} />
-                                                    </button>
-                                                    <span className="text-zinc-900 font-bold min-w-[60px] text-center text-sm">
-                                                        {formatMinutesToDuration(durationMinutes)}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => adjustDuration(30)}
-                                                        className="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 transition-colors"
-                                                    >
-                                                        <Plus size={14} strokeWidth={3} />
-                                                    </button>
+
+                                                {/* Presets Grid */}
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {[30, 60, 90, 120, 180, 240, 300, 480].map(mins => (
+                                                        <button
+                                                            key={mins}
+                                                            onClick={() => setDurationMinutes(mins)}
+                                                            className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${durationMinutes === mins ? 'bg-zinc-900 border-zinc-900 text-white' : 'bg-white border-zinc-100 text-zinc-500 hover:border-zinc-200'}`}
+                                                        >
+                                                            {formatMinutesToDuration(mins)}
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}

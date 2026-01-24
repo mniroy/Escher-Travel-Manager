@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { BottomNavigation } from './BottomNavigation';
 import { SyncIndicator } from './SyncIndicator';
 import { Menu } from 'lucide-react';
@@ -12,6 +13,8 @@ interface LayoutProps {
 
 export function Layout({ children, showNav = true, fullScreen = false }: LayoutProps) {
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+    const location = useLocation();
+    const isSummaryPage = location.pathname === '/summary';
 
     if (fullScreen) {
         // ... (fullscreen logic) ...
@@ -40,25 +43,18 @@ export function Layout({ children, showNav = true, fullScreen = false }: LayoutP
             {/* Header */}
             {/* Header - Nav Controls (under content, above bg) */}
             <div className="fixed top-0 left-0 z-[1] px-6 pt-14 pb-4 flex items-center gap-4">
-                <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="p-2 -ml-2 text-white rounded-full hover:bg-white/10 transition-colors z-50 relative"
-                >
-                    <Menu size={24} strokeWidth={2} />
-                </button>
+                {isSummaryPage && (
+                    <button
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="p-2 -ml-2 text-white rounded-full hover:bg-white/10 transition-colors z-50 relative"
+                    >
+                        <Menu size={24} strokeWidth={2} />
+                    </button>
+                )}
                 {/* Sync Status Indicator */}
                 <SyncIndicator />
             </div>
 
-            {/* Header - Logo (under content, above bg) */}
-            <div className="fixed top-0 right-0 z-[5] px-6 pt-14 pb-4 flex flex-col items-end pointer-events-none">
-                <h1 className="font-['Playfair_Display'] font-black text-2xl tracking-tight text-white leading-none drop-shadow-md">
-                    ESCHER
-                </h1>
-                <span className="text-[10px] font-bold tracking-widest text-white/80 uppercase drop-shadow-sm">
-                    Travel Manager
-                </span>
-            </div>
 
             <main className="relative w-full md:max-w-5xl mx-auto min-h-screen">
                 {children}

@@ -1,5 +1,4 @@
 import { Minus, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 interface DurationPickerProps {
     durationStr: string;
@@ -33,39 +32,48 @@ export function DurationPicker({ durationStr, onSave, onClose }: DurationPickerP
         onSave(formatDuration(newMins));
     };
 
+    const presets = [15, 30, 45, 60, 90, 120, 180, 240];
+
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-2 shadow-2xl z-50 min-w-[120px]"
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div className="flex items-center justify-between gap-3">
+        <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+            {/* Main Stepper */}
+            <div className="flex items-center justify-between bg-zinc-50 rounded-2xl p-1 border border-zinc-100">
                 <button
                     onClick={() => adjust(-15)}
-                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                    className="w-12 h-12 rounded-xl bg-white hover:bg-zinc-100 flex items-center justify-center text-zinc-600 shadow-sm border border-zinc-200/50 active:scale-90 transition-all"
                 >
-                    <Minus size={14} strokeWidth={3} />
+                    <Minus size={18} strokeWidth={2.5} />
                 </button>
-                <div className="text-sm font-bold text-white min-w-[3rem] text-center">
-                    {formatDuration(currentMins)}
+
+                <div className="flex flex-col items-center flex-1">
+                    <span className="text-xl font-black text-zinc-900 tracking-tight">
+                        {formatDuration(currentMins)}
+                    </span>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none mt-1">
+                        minutes
+                    </span>
                 </div>
+
                 <button
                     onClick={() => adjust(15)}
-                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                    className="w-12 h-12 rounded-xl bg-white hover:bg-zinc-100 flex items-center justify-center text-zinc-600 shadow-sm border border-zinc-200/50 active:scale-90 transition-all"
                 >
-                    <Plus size={14} strokeWidth={3} />
+                    <Plus size={18} strokeWidth={2.5} />
                 </button>
             </div>
 
-            {/* Preset Buttons */}
-            <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-white/10">
-                {[30, 60, 90].map(mins => (
+            {/* Grid of Presets */}
+            <div className="grid grid-cols-4 gap-2">
+                {presets.map(mins => (
                     <button
                         key={mins}
                         onClick={() => onSave(formatDuration(mins))}
-                        className={`text-[10px] font-bold py-1 rounded hover:bg-white/10 transition-colors ${currentMins === mins ? 'bg-white/20 text-white' : 'text-slate-400'}`}
+                        className={`
+                            py-2.5 rounded-xl text-[11px] font-bold transition-all border
+                            ${currentMins === mins
+                                ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-md shadow-blue-500/20'
+                                : 'bg-white border-zinc-100 text-zinc-500 hover:border-zinc-300 hover:bg-zinc-50'}
+                        `}
                     >
                         {formatDuration(mins)}
                     </button>
@@ -74,13 +82,10 @@ export function DurationPicker({ durationStr, onSave, onClose }: DurationPickerP
 
             <button
                 onClick={onClose}
-                className="w-full mt-2 py-1.5 bg-[#007AFF] hover:bg-[#007AFF]/90 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-colors"
+                className="w-full py-4 bg-zinc-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-                Done
+                Confirm
             </button>
-
-            {/* Close Overlay */}
-            <div className="fixed inset-0 z-[-1]" onClick={onClose} />
-        </motion.div>
+        </div>
     );
 }

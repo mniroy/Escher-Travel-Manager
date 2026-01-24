@@ -2,7 +2,7 @@ import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, M
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { TimePicker } from './TimePicker';
+import { createPortal } from 'react-dom';
 import { DurationPicker } from './DurationPicker';
 import { parseTime, formatTime } from '../lib/utils';
 
@@ -237,26 +237,22 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                 <div className="flex items-center justify-center relative z-30 group/start">
                                     <div className="bg-white border-2 border-blue-200 rounded-full flex items-center shadow-xl z-20 overflow-hidden">
                                         {/* Area 1: Time Setting (Click to open picker) */}
-                                        <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer"
-                                            onClick={() => setShowTimePicker(true)}
-                                        >
+                                        <div className="relative flex items-center gap-2 pl-4 pr-3 py-1.5 border-r border-blue-100 hover:bg-blue-50 transition-colors active:bg-blue-100 cursor-pointer group/start">
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF] shadow-[0_0_10px_rgba(0,122,255,0.4)] animate-pulse" />
                                             <span className={`text-[12px] ${timeColor === 'text-white/90' ? 'text-[#007AFF]' : timeColor} font-black uppercase tracking-widest flex items-center gap-1.5`}>
                                                 {event.time}
                                                 <Pencil size={10} className="opacity-40" />
                                             </span>
-                                            <AnimatePresence>
-                                                {showTimePicker && (
-                                                    <TimePicker
-                                                        initialTime={event.time}
-                                                        onSave={(newTime) => {
-                                                            onTimeChange?.(event.id, newTime);
-                                                            setShowTimePicker(false);
-                                                        }}
-                                                        onClose={() => setShowTimePicker(false)}
-                                                    />
-                                                )}
-                                            </AnimatePresence>
+                                            <input
+                                                type="time"
+                                                className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full"
+                                                onChange={(e) => {
+                                                    const newTime = e.target.value;
+                                                    if (newTime) {
+                                                        onTimeChange?.(event.id, newTime);
+                                                    }
+                                                }}
+                                            />
                                         </div>
 
                                         {/* Area 2: 'Now' Button (Instant update) */}
@@ -565,17 +561,13 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                                                             </div>
                                                             <AnimatePresence>
                                                                 {showDurationPicker && (
-                                                                    <DurationPicker
+                                                                    <DurationPortalWrapper
                                                                         durationStr={event.duration}
                                                                         onSave={(newDuration) => {
                                                                             onDurationChange?.(event.id, newDuration);
-                                                                            // Don't close immediately to allow rapid adjustment? 
-                                                                            // Actually prompt implies "editing duration... done". 
-                                                                            // But standard behavior for +/- is keep open.
-                                                                            // Let's keep it open, but we need a way to close it. 
-                                                                            // The picker has a backdrop click to close.
                                                                         }}
                                                                         onClose={() => setShowDurationPicker(false)}
+                                                                        eventTitle={event.title}
                                                                     />
                                                                 )}
                                                             </AnimatePresence>
@@ -671,6 +663,38 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
                 )}
             </div>
         </div >
+    );
+}
+
+function DurationPortalWrapper({ durationStr, onSave, onClose, eventTitle }: { durationStr: string; onSave: (d: string) => void; onClose: () => void; eventTitle: string }) {
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-[280px] border border-zinc-100"
+            >
+                <div className="mb-4">
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Set Duration</div>
+                    <div className="text-sm font-bold text-zinc-900 truncate">{eventTitle}</div>
+                </div>
+
+                <DurationPicker
+                    durationStr={durationStr}
+                    onSave={onSave}
+                    onClose={onClose}
+                />
+            </motion.div>
+        </div>,
+        document.body
     );
 }
 // Forced HMR Refresh
