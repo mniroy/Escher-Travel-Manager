@@ -160,13 +160,6 @@ export default function ItineraryPage() {
         recalculateSchedule(newEventsList);
     };
 
-    const handleToggleEdit = () => {
-        if (isEditing) {
-            // User clicked "Done"
-            recalculateSchedule();
-        }
-        setIsEditing(!isEditing);
-    };
 
     const handleReorder = (newOrder: TimelineEvent[]) => {
         // We only want to reorder the events that are currently visible/filtered
@@ -991,28 +984,6 @@ export default function ItineraryPage() {
                                                 <span className="whitespace-nowrap uppercase tracking-tighter opacity-90">{isOptimizing ? 'Optimizing...' : 'Optimize Route'}</span>
                                             </button>
 
-                                            <button
-                                                onClick={handleToggleEdit}
-                                                className={`h-14 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full
-                                                ${isEditing
-                                                        ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
-                                                        : 'bg-white text-zinc-900 border-zinc-300 hover:bg-zinc-50 hover:border-zinc-400'}
-                                            `}
-                                            >
-                                                {isEditing ? <Check size={16} /> : <Pencil size={14} />}
-                                                <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">{isEditing ? 'Done' : 'Edit Mode'}</span>
-                                            </button>
-
-                                            {/* Move Day Button */}
-                                            {isEditing && (
-                                                <button
-                                                    onClick={() => setIsMoveDayModalOpen(true)}
-                                                    className="h-14 px-2 rounded-2xl border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 active:scale-95 flex flex-col items-center justify-center gap-1 text-[10px] font-bold transition-all shadow-sm w-full"
-                                                >
-                                                    <CalendarDays size={14} />
-                                                    <span className="whitespace-nowrap uppercase tracking-tighter opacity-80">Move Day</span>
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1141,13 +1112,44 @@ export default function ItineraryPage() {
                 )}
             </AnimatePresence>
 
-            {/* Bottom Date Selector - Unified Collapsible Pill */}
-            <div className="fixed bottom-24 right-4 z-40 pointer-events-none">
+            {/* Bottom Right Date Selector & Edit Mode - Unified Collapsible Pill */}
+            <div className="fixed bottom-28 left-4 right-4 z-40 pointer-events-none flex justify-end">
                 <motion.div
                     layout
                     transition={{ type: "spring", stiffness: 300, damping: 30, shadow: { duration: 0.2 } }}
-                    className="pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[1.75rem] shadow-[0_8px_30px_rgba(0,0,0,0.15)] border border-zinc-100 flex items-center p-1.5"
+                    className="pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[1.75rem] shadow-[0_8px_30px_rgba(0,0,0,0.15)] border border-zinc-100 flex items-center p-1.5 gap-1"
                 >
+                    {/* Edit Mode Toggle - Now at Bottom Left of Pill */}
+                    <button
+                        onClick={() => {
+                            if (isEditing) recalculateSchedule();
+                            setIsEditing(!isEditing);
+                        }}
+                        className={`
+                            w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all active:scale-90 flex-shrink-0
+                            ${isEditing ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'}
+                        `}
+                    >
+                        {isEditing ? <Check size={18} /> : <Pencil size={18} />}
+                        <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5 line-clamp-1">
+                            {isEditing ? 'Done' : 'Edit'}
+                        </span>
+                    </button>
+
+                    {isEditing && (
+                        <button
+                            onClick={() => setIsMoveDayModalOpen(true)}
+                            className="w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all active:scale-90 flex-shrink-0 text-zinc-500 hover:bg-zinc-100"
+                        >
+                            <CalendarDays size={18} />
+                            <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5 line-clamp-1">
+                                Move
+                            </span>
+                        </button>
+                    )}
+
+                    <div className="w-px h-6 bg-zinc-200 mx-1 flex-shrink-0" />
+
                     <AnimatePresence initial={false}>
                         {isDateSelectorExpanded && (
                             <motion.div
@@ -1155,9 +1157,9 @@ export default function ItineraryPage() {
                                 animate={{ width: "auto", opacity: 1, marginRight: 8 }}
                                 exit={{ width: 0, opacity: 0, marginRight: 0 }}
                                 transition={{ duration: 0.25, ease: "easeInOut" }}
-                                className="overflow-hidden flex-1"
+                                className="overflow-hidden flex-1 min-w-0"
                             >
-                                <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-0.5 max-w-[calc(100vw-10rem)] overscroll-contain touch-pan-x">
+                                <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-0.5 max-w-[calc(100vw-13rem)] md:max-w-none overscroll-contain touch-pan-x">
                                     {tripDates.map((dateItem) => {
                                         const isSelected = selectedDayOffset === dateItem.offset;
                                         const today = new Date();
