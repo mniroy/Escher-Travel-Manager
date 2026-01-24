@@ -11,7 +11,8 @@ export default function MapPage() {
         events,
         selectedDayOffset,
         setSelectedDayOffset,
-        setEvents
+        setEvents,
+        recordHistory
     } = useTrip();
 
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
@@ -160,6 +161,7 @@ export default function MapPage() {
         };
 
         setEvents(prev => [...prev, newSavedEvent]);
+        recordHistory('add', newSavedEvent, 'New place added to library from map exploration');
         setSelectedPlaceId(null); // Close the detail card
     };
 

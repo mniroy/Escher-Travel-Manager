@@ -11,7 +11,7 @@ import { TimelineEvent } from '../components/TimelineItem';
 import { getArea } from '../lib/utils';
 
 export default function PlacesPage() {
-    const { events, setEvents, deleteEvent } = useTrip(); // Need deleteEvent
+    const { events, setEvents, deleteEvent, recordHistory } = useTrip(); // Need deleteEvent and recordHistory
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<Category>('All');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,6 +82,7 @@ export default function PlacesPage() {
         };
 
         setEvents(prev => [...prev, newEvent]);
+        recordHistory('add', newEvent, 'New place saved to library');
         setIsAddModalOpen(false);
     };
 
@@ -315,8 +316,9 @@ export default function PlacesPage() {
                                                                         onClick={(e) => {
                                                                             e.preventDefault();
                                                                             e.stopPropagation();
-                                                                            if (window.confirm('Are you sure you want to delete this place?')) {
-                                                                                deleteEvent(place.id);
+                                                                            const comment = window.prompt('Why are you removing this place from your library? (Optional)', 'No longer interested');
+                                                                            if (comment !== null) {
+                                                                                deleteEvent(place.id, comment);
                                                                             }
                                                                         }}
                                                                         className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-md text-white border border-white/20 shadow-sm z-20 hover:bg-red-500/80 transition-all active:scale-95"

@@ -29,7 +29,7 @@ interface GooglePlace {
 
 export default function ExplorePlacesPage() {
     const navigate = useNavigate();
-    const { setEvents, events } = useTrip();
+    const { setEvents, events, recordHistory } = useTrip();
 
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +117,7 @@ export default function ExplorePlacesPage() {
         };
 
         setEvents(prev => [...prev, newEvent]);
+        recordHistory('add', newEvent, 'Recommended place added to library');
         alert(`Added ${place.name} to your library!`);
     };
 

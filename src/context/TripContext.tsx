@@ -26,7 +26,8 @@ interface TripContextType {
     // Events
     events: TimelineEvent[];
     setEvents: (events: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => void;
-    deleteEvent: (id: string) => Promise<void>;
+    deleteEvent: (id: string, comment?: string) => Promise<void>;
+    recordHistory: (actionType: 'add' | 'update' | 'delete' | 'move', event: TimelineEvent, comment?: string) => Promise<void>;
 
     // Computed
     tripDates: { dateObj: Date; dayName: string; dateNum: number; fullDate: string; offset: number }[];
@@ -518,7 +519,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const deleteEvent = async (id: string) => {
+    const deleteEvent = async (id: string, comment?: string) => {
         // Optimistic update using Ref
         const previousEvents = eventsRef.current;
         const newEvents = previousEvents.filter(e => e.id !== id);
@@ -528,11 +529,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
         if (currentTripId) {
             try {
-                // Record deletion in history BEFORE actual deletion if possible, 
-                // or just snapshot it now.
+                // Record deletion in history 
                 const eventToSnapshot = previousEvents.find(e => e.id === id);
                 if (eventToSnapshot) {
-                    await addHistoryRecord('delete', eventToSnapshot, 'Item deleted from itinerary');
+                    await addHistoryRecord('delete', eventToSnapshot, comment || 'Item removed from itinerary');
                 }
 
                 if (isOnline) {
@@ -549,7 +549,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const addHistoryRecord = async (actionType: 'delete' | 'add' | 'update', event: TimelineEvent, comment?: string) => {
+    const addHistoryRecord = async (actionType: 'delete' | 'add' | 'update' | 'move', event: TimelineEvent, comment?: string) => {
         if (!currentTripId) return;
 
         const record: Omit<DbHistory, 'id' | 'created_at'> = {
@@ -618,6 +618,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             setSelectedDayOffset,
             history,
             addHistoryRecord,
+            recordHistory: addHistoryRecord, // Alias for more natural naming
             updateHistoryComment,
         }}>
             {children}

@@ -98,7 +98,7 @@ const formatTime = (minutes: number) => {
 export default function ItineraryPage() {
     const {
         tripName,
-        events, setEvents, deleteEvent,
+        events, setEvents, deleteEvent, recordHistory,
         tripDates,
         selectedDayOffset,
         setSelectedDayOffset
@@ -509,6 +509,8 @@ export default function ItineraryPage() {
                 // Refactoring recalculateSchedule to pure function is best.
                 // For now, let's replicate the logic or create a helper that returns the list.
 
+                const updatedEvent = updated.find(e => e.id === editingEvent!.id);
+                if (updatedEvent) recordHistory('update', updatedEvent, 'Activity details modified');
                 return calculateScheduleForList(updated, [selectedDayOffset]);
             });
 
@@ -536,6 +538,7 @@ export default function ItineraryPage() {
                     nextEvents = [...prev, newEvent];
                 }
 
+                recordHistory('add', newEvent, 'New activity added to itinerary');
                 return calculateScheduleForList(nextEvents, [selectedDayOffset]);
             });
             setInsertIndex(null);
@@ -543,9 +546,9 @@ export default function ItineraryPage() {
     };
 
     const handleDeleteEvent = (id: string) => {
-        if (window.confirm('Are you sure you want to remove this activity?')) {
-            addToHistory(events); // Save current state before changing
-            deleteEvent(id);
+        const comment = window.prompt('Why are you removing this activity? (Optional)', 'No longer fits schedule');
+        if (comment !== null) {
+            deleteEvent(id, comment);
         }
     };
 
@@ -570,7 +573,12 @@ export default function ItineraryPage() {
                     isEnd: isEnd || e.isEnd,
                     description: '', // Reset notes
                 } : e);
-                return calculateScheduleForList(updated, [selectedDayOffset]);
+                const result = calculateScheduleForList(updated, [selectedDayOffset]);
+                const replacedEvent = updated.find(e => e.id === replacingEventId);
+                if (replacedEvent) {
+                    recordHistory('update', replacedEvent, 'Activity replaced from library');
+                }
+                return result;
             });
             setReplacingEventId(null);
             setIsSelectorOpen(false);
@@ -637,7 +645,11 @@ export default function ItineraryPage() {
                 addEventNormal(normalEvent);
             }
 
-            return calculateScheduleForList([...otherEvents, ...newDayList], [selectedDayOffset]);
+            const resultEvents = calculateScheduleForList([...otherEvents, ...newDayList], [selectedDayOffset]);
+            // Find what was added (events that weren't in prev)
+            const addedItems = newDayList.filter(item => !currentDayEvents.some(old => old.id === item.id));
+            addedItems.forEach(item => recordHistory('add', item, 'Place added from library'));
+            return resultEvents;
         });
 
         // DO NOT CLOSE SELECTOR
@@ -672,6 +684,11 @@ export default function ItineraryPage() {
                 const updated = prev.map(e =>
                     e.dayOffset === selectedDayOffset ? { ...e, dayOffset: targetOffset } : e
                 );
+                // Record the move in history for one of the items or a summary
+                const movedCount = updated.filter(e => e.dayOffset === targetOffset && !prev.find(p => p.id === e.id && p.dayOffset === targetOffset)).length;
+                if (movedCount > 0) {
+                    recordHistory('move', { title: `Day ${selectedDayOffset + 1} Activities` } as any, `Moved ${movedCount} items to Day ${targetOffset + 1}`);
+                }
                 // Also recalculate the target day to ensure schedule is valid
                 return calculateScheduleForList(updated, [targetOffset]);
             });
