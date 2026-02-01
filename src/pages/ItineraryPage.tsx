@@ -34,6 +34,7 @@ const calculateScheduleForList = (sourceEvents: TimelineEvent[], selectedOffsets
             const travelMins = parseDuration(event.travelTime);
             // Add travel time + parking buffer to get to the location
             currentTime += (travelMins + parkingBuffer);
+            currentTime = currentTime % (24 * 60);
         }
 
         const newTimeStr = formatTime(currentTime);
@@ -43,6 +44,8 @@ const calculateScheduleForList = (sourceEvents: TimelineEvent[], selectedOffsets
         const duration = isAnchor ? 0 : parseDuration(event.duration);
 
         currentTime += duration;
+        // Normalize to single day (0-24h) to prevent "55:50 AM" overflow issues
+        currentTime = currentTime % (24 * 60);
 
         return { ...event, time: newTimeStr };
     });
@@ -62,8 +65,14 @@ const parseTime = (str: string) => {
         const m = parseInt(timeMatch[2]);
         const period = timeMatch[3]?.toUpperCase();
 
+        // STRICT: Modulo 24 to prevent "55:50" issues
+        h = h % 24;
+
         if (period === 'PM' && h !== 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
+
+        // Safety wrap
+        h = h % 24;
 
         return h * 60 + m;
     } catch (e) {
@@ -86,12 +95,13 @@ const parseDuration = (str?: string) => {
 };
 
 const formatTime = (minutes: number) => {
-    let h = Math.floor(minutes / 60);
+    let h = Math.floor(minutes / 60) % 24;
     const m = minutes % 60;
     const period = h >= 12 ? 'PM' : 'AM';
+
     if (h > 12) h -= 12;
-    if (h === 0 || h === 24) h = 12;
-    if (h > 24) h -= 24; // Handle overlap to next day roughly
+    if (h === 0) h = 12;
+
     return `${h}:${m.toString().padStart(2, '0')} ${period}`;
 };
 

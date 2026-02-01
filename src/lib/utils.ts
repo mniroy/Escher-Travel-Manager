@@ -36,9 +36,14 @@ export const parseTime = (str: string) => {
 
         if (isNaN(h) || isNaN(m)) return 9 * 60; // Fallback
 
+        // STRICT: Modulo 24 to prevent "55:50" issues
+        h = h % 24;
+
         if (period) {
             if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
             if (period.toUpperCase() === 'AM' && h === 12) h = 0;
+            // Handle if PM pushed it over 24 (e.g. if input was 23 PM which is invalid but possible)
+            h = h % 24;
         }
         return h * 60 + m;
     } catch (e) {
@@ -47,12 +52,13 @@ export const parseTime = (str: string) => {
 };
 
 export const formatTime = (minutes: number) => {
-    let h = Math.floor(minutes / 60);
+    let h = Math.floor(minutes / 60) % 24;
     const m = minutes % 60;
     const period = h >= 12 ? 'PM' : 'AM';
+
     if (h > 12) h -= 12;
-    if (h === 0 || h === 24) h = 12;
-    if (h > 24) h -= 24;
+    if (h === 0) h = 12;
+
     return `${h}:${m.toString().padStart(2, '0')} ${period}`;
 };
 
