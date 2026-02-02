@@ -1,4 +1,4 @@
-import { Star, Clock, CheckCircle2, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight, Bike, Footprints } from 'lucide-react';
+import { Star, Clock, XCircle, Undo2, Plane, Pencil, Timer, Car, MapPin, Trash2, ArrowLeftRight, Bike, Footprints, LogOut } from 'lucide-react';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -97,7 +97,7 @@ export interface TimelineEvent {
     rating?: number;
     reviews?: number;
     image?: string;
-    status?: string | 'Checked In' | 'Skipped';
+    status?: string | 'Checked In' | 'Skipped' | 'Checked Out';
     duration?: string;
     googleMapsLink?: string;
     travelTime?: string;
@@ -131,7 +131,7 @@ export interface TimelineItemProps {
     isFirst?: boolean;
     icon: ReactNode;
     onClick?: () => void;
-    onCheckIn?: (id: string) => void;
+    onCheckOut?: (id: string) => void;
     onSkip?: (id: string) => void;
     isCompact?: boolean;
     nextCongestion?: 'low' | 'moderate' | 'high';
@@ -147,7 +147,7 @@ export interface TimelineItemProps {
     onTransportModeChange?: (mode: 'DRIVE' | 'TWO_WHEELER' | 'WALK') => void;
 }
 
-export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckIn, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, onDelete, onReplace, selectedDayName, currentTransportMode, onTransportModeChange }: TimelineItemProps) {
+export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, onClick, onCheckOut, onSkip, nextCongestion, onTimeChange, onBufferChange, onDurationChange, onDescriptionChange, onDescriptionSave, onDelete, onReplace, selectedDayName, currentTransportMode, onTransportModeChange }: TimelineItemProps) {
     // Helper to ensure we don't display the address as the description
     const getCleanDescription = () => {
         const desc = event.description?.trim();
@@ -176,7 +176,7 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
     const [showDurationPicker, setShowDurationPicker] = useState(false);
     const showTravelTime = !!event.travelTime && !isCompact;
     const isSkipped = event.status === 'Skipped';
-    const isCheckedIn = event.status === 'Checked In';
+    const isCheckedOut = event.status === 'Checked Out';
     const showStartBadge = isFirst;
 
     // Traffic Coloring Logic
@@ -670,16 +670,16 @@ export function TimelineItem({ event, isLast, isFirst, isCompact = false, icon, 
 
                                         <div className="grid grid-cols-2 gap-2.5">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); onCheckIn?.(event.id); }}
+                                                onClick={(e) => { e.stopPropagation(); onCheckOut?.(event.id); }}
                                                 className={`
                                                 flex items-center justify-center gap-2 py-3 px-3 rounded-xl transition-all text-xs font-bold border
-                                                ${isCheckedIn
+                                                ${isCheckedOut
                                                         ? 'bg-white text-[#007AFF] border-white shadow-md'
                                                         : 'bg-[#005EC2] text-white/90 border-white/10 hover:bg-[#0051A8] hover:text-white'}
                                             `}
                                             >
-                                                <CheckCircle2 size={15} className={isCheckedIn ? 'fill-[#007AFF] text-white' : ''} />
-                                                {isCheckedIn ? 'Checked In' : 'Check In'}
+                                                <LogOut size={15} className={isCheckedOut ? 'text-[#007AFF]' : ''} />
+                                                {isCheckedOut ? 'Checked Out' : 'Check Out'}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onSkip?.(event.id); }}

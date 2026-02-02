@@ -317,14 +317,9 @@ export default function ItineraryPage() {
         }
     };
 
-    const handleCheckIn = (id: string) => {
+    const handleCheckOut = (id: string) => {
         const now = new Date();
-        let hours = now.getHours();
-        const minutes = now.getMinutes();
-        const period = hours >= 12 ? 'PM' : 'AM';
-        if (hours > 12) hours -= 12;
-        if (hours === 0) hours = 12;
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+        let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
         setEvents(prev => {
             const index = prev.findIndex(e => e.id === id);
@@ -333,32 +328,30 @@ export default function ItineraryPage() {
             const nextEvents = [...prev];
             const currentEvent = nextEvents[index];
 
-            if (currentEvent.status === 'Checked In') {
-                // Toggle OFF: Revert to Scheduled, keep current time
+            if (currentEvent.status === 'Checked Out') {
+                // Toggle OFF: Revert to Scheduled
                 nextEvents[index] = { ...currentEvent, status: 'Scheduled' };
             } else {
-                // Toggle ON: Set to Checked In, update time to NOW
-                nextEvents[index] = { ...currentEvent, status: 'Checked In', time: timeString };
+                // Toggle ON: Set to Checked Out, update duration so it ends NOW
+                const startMinutes = parseTime(currentEvent.time);
+
+                // Handle crossing midnight (Start 11PM, Now 1AM)
+                if (currentMinutes < startMinutes) {
+                    currentMinutes += 24 * 60;
+                }
+
+                let newDuration = currentMinutes - startMinutes;
+                // Minimum 1 min duration to avoid issues? Or 0 is fine.
+                if (newDuration < 5) newDuration = 5; // Minimum 5 mins to be safe visibly
+
+                nextEvents[index] = {
+                    ...currentEvent,
+                    status: 'Checked Out',
+                    duration: `${newDuration}m`
+                };
             }
 
-            let duration = parseDuration(nextEvents[index].duration || '60m');
-            // If checking in (or scheduled), we assume it takes the full duration
-            if (nextEvents[index].status === 'Skipped') duration = 0;
-
-            let cursorTime = parseTime(nextEvents[index].time) + duration;
-
-            for (let i = index + 1; i < nextEvents.length; i++) {
-                const evt = nextEvents[i];
-                const travel = parseDuration(evt.travelTime);
-                const newStart = cursorTime + travel;
-
-                nextEvents[i] = { ...evt, time: formatTime(newStart) };
-
-                let dur = parseDuration(evt.duration || '60m');
-                if (evt.status === 'Skipped') dur = 0;
-                cursorTime = newStart + dur;
-            }
-            return nextEvents;
+            return calculateScheduleForList(nextEvents, [selectedDayOffset]);
         });
     };
 
@@ -1033,7 +1026,7 @@ export default function ItineraryPage() {
                                     openSelectorAt={openSelectorAt}
                                     openEditModal={openEditModal}
                                     handleDeleteEvent={handleDeleteEvent}
-                                    onCheckIn={handleCheckIn}
+                                    onCheckOut={handleCheckOut}
                                     onSkip={handleSkip}
                                     onTimeChange={handleTimeChange}
                                     onBufferChange={handleBufferChange}
@@ -1237,7 +1230,7 @@ function DraggableTimelineItem({
     openSelectorAt,
     openEditModal,
     handleDeleteEvent,
-    onCheckIn,
+    onCheckOut,
     onSkip,
     onTimeChange,
     onBufferChange,
@@ -1308,7 +1301,7 @@ function DraggableTimelineItem({
                         isCompact={isEditing}
                         icon={icon}
                         nextCongestion={nextCongestion}
-                        onCheckIn={onCheckIn}
+                        onCheckOut={onCheckOut}
                         onSkip={onSkip}
                         onTimeChange={onTimeChange}
                         onBufferChange={onBufferChange}
