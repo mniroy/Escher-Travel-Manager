@@ -1,37 +1,37 @@
-# Escher Travel Manager
+# Escher Travel Manager (100% Self-Hosted)
 
-A premium Travel Management Progressive Web App (PWA) built with "Gui First" approach.
+A premium Travel Management Progressive Web App (PWA) designed for travelers. Plan your itineraries, scan and parse tickets with Gemini AI, explore places with Google Maps, and optimize routes — **fully self-hosted with Docker & PostgreSQL**.
 
-## Tech Stack
--   **Framework**: React 18 + TypeScript
--   **Build Tool**: Vite
--   **Styling**: Tailwind CSS
--   **Icons**: Lucide React
--   **Routing**: React Router DOM
+## ✨ Features
+- 🚀 **100% Self-Hosted**: No Vercel or Supabase Cloud required.
+- 🗄️ **Self-Hosted PostgreSQL**: Automatically provisioned with persistent storage.
+- 📂 **Local Document Storage**: Upload and manage travel tickets locally.
+- ⚡ **Realtime Multi-Device Sync**: WebSocket synchronization across phones and laptops.
+- 🤖 **AI Smart Scan**: Gemini Flash 2.5 extracts itineraries from PDF & image tickets.
+- 🗺️ **Interactive Maps & Routes**: Google Places search and automated route optimization.
 
-## Prerequisites
--   [Node.js](https://nodejs.org/) (Version 18+ recommended)
+---
 
-## How to Run
-Since this project was initialized manually, you need to install the dependencies first.
+## 🚀 Quick Start with Docker Compose
 
-1.  **Install Dependencies**
-    Open your terminal in this directory and run:
-    ```bash
-    npm install
-    ```
+```bash
+# 1. Copy environment template
+cp .env.example .env
 
-2.  **Start Development Server**
-    Run the dev command:
-    ```bash
-    npm run dev
-    ```
+# 2. Fill in your Google API keys in .env
+nano .env
 
-3.  **Preview**
-    Open your browser and navigate to the URL shown in the terminal (usually `http://localhost:5173`).
+# 3. Launch with Docker Compose
+docker compose up -d --build
+```
+Access the application at `http://localhost:3000`.
+For complete documentation, see [DOCKER.md](file:///Users/royyanwicaksono/Dev/Docker/Escher_Travel_Manager/DOCKER.md).
 
-## Features
--   **Itinerary View**: Timeline of your trip (Transport, Stay, Eat, Play).
--   **Place Detail**: Rich details for locations with gallery and tabs.
--   **Smart Map**: Mock map view with route visualization.
--   **Smart Scan**: Mock AI scanner for tickets and receipts.
+---
+
+## 🛠️ Tech Stack
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide React, Framer Motion
+- **Backend**: Node.js, Express, WebSocket (`ws`), Multer, esbuild
+- **Database**: PostgreSQL (`postgres:16-alpine` + `pg` driver)
+- **AI & Maps**: Google Gemini Flash 2.5, Google Places (New), Google Routes API
+- **Deployment**: Docker & Docker Compose
