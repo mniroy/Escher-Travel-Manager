@@ -1,4 +1,27 @@
-// Self-Hosted API Client for Escher Travel Manager (Zero Cloud Dependency)
+// Supabase Client Configuration
+import { createClient } from '@supabase/supabase-js';
+
+// Get environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Validate configuration
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[Supabase] Missing configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
+}
+
+// Create Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+    },
+    realtime: {
+        params: {
+            eventsPerSecond: 10,
+        },
+    },
+});
 
 // ==============================================
 // Type Definitions (matching database schema)
@@ -29,7 +52,7 @@ export interface DbEvent {
     duration: string | null;
     google_maps_link: string | null;
     travel_time: string | null;
-    travel_distance?: string | null;
+    travel_distance: string | null;
     travel_mode: 'drive' | 'walk' | 'transit' | null;
     day_offset: number;
     sort_order: number;
@@ -70,222 +93,184 @@ export interface DbHistory {
 }
 
 // ==============================================
-// WebSocket Real-time Live Sync
+// Database Operations
 // ==============================================
-
-type RealtimeMessage = {
-    table: 'trips' | 'events' | 'documents' | 'history';
-    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-    new: any;
-    old: any;
-};
-
-const listeners = new Set<(event: RealtimeMessage) => void>();
-let wsClient: WebSocket | null = null;
-let reconnectTimer: any = null;
-
-function getWebSocket() {
-    if (typeof window === 'undefined') return null;
-    if (wsClient && (wsClient.readyState === WebSocket.OPEN || wsClient.readyState === WebSocket.CONNECTING)) {
-        return wsClient;
-    }
-
-    try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-        wsClient = new WebSocket(wsUrl);
-
-        wsClient.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'CHANGE') {
-                    for (const listener of listeners) {
-                        listener(data);
-                    }
-                }
-            } catch (err) {
-                console.error('[WebSocket] Message parse error:', err);
-            }
-        };
-
-        wsClient.onclose = () => {
-            if (!reconnectTimer) {
-                reconnectTimer = setTimeout(() => {
-                    reconnectTimer = null;
-                    getWebSocket();
-                }, 3000);
-            }
-        };
-
-        wsClient.onerror = () => {
-            wsClient?.close();
-        };
-    } catch (err) {
-        console.warn('[WebSocket] Init error:', err);
-    }
-
-    return wsClient;
-}
-
-// ==============================================
-// Local Storage / File Upload Client
-// ==============================================
-
-export const supabase = {
-    storage: {
-        from: (_bucketName: string) => ({
-            upload: async (_fileName: string, file: File, _options?: any) => {
-                try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    const res = await fetch('/api/upload', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    if (!res.ok) {
-                        const err = await res.json().catch(() => ({}));
-                        return { data: null, error: new Error(err.error || 'Upload failed') };
-                    }
-
-                    const data = await res.json();
-                    return { data, error: null };
-                } catch (err) {
-                    return { data: null, error: err instanceof Error ? err : new Error('Upload error') };
-                }
-            },
-            getPublicUrl: (fileName: string) => {
-                if (fileName.startsWith('/uploads/') || fileName.startsWith('http')) {
-                    return { data: { publicUrl: fileName } };
-                }
-                return { data: { publicUrl: `/uploads/${fileName}` } };
-            },
-        }),
-    },
-};
-
-// ==============================================
-// Database Operations (Self-Hosted REST API)
-// ==============================================
-
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options?.headers,
-        },
-        ...options,
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${res.status}: ${res.statusText}`);
-    }
-
-    if (res.status === 204) return {} as T;
-    return res.json();
-}
 
 export const db = {
     // ---- Trips ----
     async getTrips(): Promise<DbTrip[]> {
-        return fetchJson<DbTrip[]>('/api/trips');
+        const { data, error } = await supabase
+            .from('trips')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
     },
 
     async getTrip(id: string): Promise<DbTrip | null> {
-        try {
-            return await fetchJson<DbTrip>(`/api/trips/${id}`);
-        } catch {
-            return null;
-        }
+        const { data, error } = await supabase
+            .from('trips')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
     },
 
     async createTrip(trip: Partial<DbTrip> & { name: string; start_date: string; duration: number }): Promise<DbTrip> {
-        return fetchJson<DbTrip>('/api/trips', {
-            method: 'POST',
-            body: JSON.stringify(trip),
-        });
+        const { data, error } = await supabase
+            .from('trips')
+            .insert(trip)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async updateTrip(id: string, updates: Partial<DbTrip>): Promise<DbTrip> {
-        return fetchJson<DbTrip>(`/api/trips/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(updates),
-        });
+        const { data, error } = await supabase
+            .from('trips')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async deleteTrip(id: string): Promise<void> {
-        await fetchJson<void>(`/api/trips/${id}`, { method: 'DELETE' });
+        const { error } = await supabase
+            .from('trips')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     },
 
     // ---- Events ----
     async getEvents(tripId: string): Promise<DbEvent[]> {
-        return fetchJson<DbEvent[]>(`/api/events?tripId=${tripId}`);
+        const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('trip_id', tripId)
+            .order('day_offset', { ascending: true })
+            .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        return data || [];
     },
 
-    async createEvent(event: Omit<DbEvent, 'created_at' | 'updated_at'>): Promise<DbEvent> {
-        return fetchJson<DbEvent>('/api/events', {
-            method: 'POST',
-            body: JSON.stringify(event),
-        });
+    async createEvent(event: Omit<DbEvent, 'id' | 'created_at' | 'updated_at'>): Promise<DbEvent> {
+        const { data, error } = await supabase
+            .from('events')
+            .insert(event)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async updateEvent(id: string, updates: Partial<DbEvent>): Promise<DbEvent> {
-        return fetchJson<DbEvent>(`/api/events/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(updates),
-        });
+        const { data, error } = await supabase
+            .from('events')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async upsertEvents(events: DbEvent[]): Promise<DbEvent[]> {
-        return fetchJson<DbEvent[]>('/api/events/batch', {
-            method: 'POST',
-            body: JSON.stringify(events),
-        });
+        const { data, error } = await supabase
+            .from('events')
+            .upsert(events, { onConflict: 'id' })
+            .select();
+
+        if (error) throw error;
+        return data || [];
     },
 
     async deleteEvent(id: string): Promise<void> {
-        await fetchJson<void>(`/api/events/${id}`, { method: 'DELETE' });
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     },
 
     // ---- Documents ----
     async getDocuments(tripId: string): Promise<DbDocument[]> {
-        return fetchJson<DbDocument[]>(`/api/documents?tripId=${tripId}`);
+        const { data, error } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('trip_id', tripId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
     },
 
-    async createDocument(doc: Partial<DbDocument> & { trip_id: string; title: string; category: string }): Promise<DbDocument> {
-        return fetchJson<DbDocument>('/api/documents', {
-            method: 'POST',
-            body: JSON.stringify(doc),
-        });
+    async createDocument(doc: Omit<DbDocument, 'id' | 'created_at' | 'updated_at'>): Promise<DbDocument> {
+        const { data, error } = await supabase
+            .from('documents')
+            .insert(doc)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async deleteDocument(id: string): Promise<void> {
-        await fetchJson<void>('/api/delete-document', {
-            method: 'POST',
-            body: JSON.stringify({ documentId: id }),
-        });
+        const { error } = await supabase
+            .from('documents')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     },
 
     // ---- History ----
     async getHistory(tripId: string): Promise<DbHistory[]> {
-        return fetchJson<DbHistory[]>(`/api/history?tripId=${tripId}`);
+        const { data, error } = await supabase
+            .from('trip_history')
+            .select('*')
+            .eq('trip_id', tripId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
     },
 
     async createHistoryRecord(record: Omit<DbHistory, 'id' | 'created_at'>): Promise<DbHistory> {
-        return fetchJson<DbHistory>('/api/history', {
-            method: 'POST',
-            body: JSON.stringify(record),
-        });
+        const { data, error } = await supabase
+            .from('trip_history')
+            .insert(record)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 
     async updateHistoryComment(id: string, comment: string): Promise<DbHistory> {
-        return fetchJson<DbHistory>(`/api/history/${id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ comment }),
-        });
+        const { data, error } = await supabase
+            .from('trip_history')
+            .update({ comment })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     },
 };
 
@@ -300,40 +285,42 @@ export type RealtimeCallback<T> = (payload: {
 }) => void;
 
 export function subscribeToTrips(callback: RealtimeCallback<DbTrip>) {
-    getWebSocket();
-    const handler = (event: RealtimeMessage) => {
-        if (event.table === 'trips') {
-            callback({
-                eventType: event.eventType,
-                new: event.new,
-                old: event.old,
-            });
-        }
-    };
-    listeners.add(handler);
-    return {
-        unsubscribe: () => listeners.delete(handler),
-    };
+    return supabase
+        .channel('trips-channel')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'trips' },
+            (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+                callback({
+                    eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+                    new: payload.new as unknown as DbTrip | null,
+                    old: payload.old as unknown as DbTrip | null,
+                });
+            }
+        )
+        .subscribe();
 }
 
 export function subscribeToEvents(tripId: string, callback: RealtimeCallback<DbEvent>) {
-    getWebSocket();
-    const handler = (event: RealtimeMessage) => {
-        if (event.table === 'events') {
-            const matchesTrip = event.new?.trip_id === tripId || event.old?.trip_id === tripId;
-            if (matchesTrip) {
+    return supabase
+        .channel(`events-${tripId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'events',
+                filter: `trip_id=eq.${tripId}`
+            },
+            (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
                 callback({
-                    eventType: event.eventType,
-                    new: event.new,
-                    old: event.old,
+                    eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+                    new: payload.new as unknown as DbEvent | null,
+                    old: payload.old as unknown as DbEvent | null,
                 });
             }
-        }
-    };
-    listeners.add(handler);
-    return {
-        unsubscribe: () => listeners.delete(handler),
-    };
+        )
+        .subscribe();
 }
 
 // ==============================================
@@ -342,10 +329,8 @@ export function subscribeToEvents(tripId: string, callback: RealtimeCallback<DbE
 
 export async function checkSupabaseConnection(): Promise<boolean> {
     try {
-        const res = await fetch('/api/health');
-        if (!res.ok) return false;
-        const data = await res.json();
-        return data.database === 'connected' || data.status === 'ok';
+        const { error } = await supabase.from('trips').select('id').limit(1);
+        return !error;
     } catch {
         return false;
     }
