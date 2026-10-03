@@ -289,7 +289,7 @@ export default function MapPage() {
             <div className="relative h-full w-full max-w-[100vw] overflow-hidden overscroll-none bg-zinc-50 touch-pan-x touch-pan-y">
 
                 <MapComponent
-                    apiKey={(typeof window !== 'undefined' && (window as any).__ENV__?.VITE_GOOGLE_MAPS_API_KEY) || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}
+                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}
                     center={activeCenter}
                     zoom={activeZoom}
                     markers={markers}
