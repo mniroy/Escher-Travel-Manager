@@ -22,7 +22,7 @@ In Vercel dashboard → **Settings → Environment Variables**, add:
 |------|-------|-------------|
 | `VITE_SUPABASE_URL` | `https://ididcipzvtzdsqxhwljj.supabase.co` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_gXt5buGl8UAHTfUZbVi33w_oemTkaF7` | Supabase anon key |
-| `GOOGLE_PLACES_API_KEY` | `AIzaSyDyfzuJ0rhAykjkKetws82o63_l6EDxmuc` | Google Places API |
+| `GOOGLE_PLACES_API_KEY` | `YOUR_GOOGLE_PLACES_API_KEY` | Google Places API |
 
 > **Important:** Make sure to select **all environments** (Production, Preview, Development)
 
